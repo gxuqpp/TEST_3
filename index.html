@@ -2,6 +2,27 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<!-- Basic browser deterrents; client-side source remains accessible. -->
+<script id="source-view-guard">
+(() => {
+  'use strict';
+  const stop = event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  window.addEventListener('contextmenu', stop, {capture: true});
+  window.addEventListener('keydown', event => {
+    const key = String(event.key || '').toLowerCase();
+    const command = event.ctrlKey || event.metaKey;
+    const sourceOrSave = command && !event.altKey && (key === 'u' || key === 's');
+    const devtools = command && event.shiftKey && ['i', 'j', 'c', 'k'].includes(key);
+    const macDevtools = event.metaKey && event.altKey && ['i', 'j', 'c', 'u'].includes(key);
+    const contextMenu = key === 'contextmenu' || (event.shiftKey && key === 'f10');
+    if (key === 'f12' || sourceOrSave || devtools || macDevtools || contextMenu) stop(event);
+  }, {capture: true});
+})();
+</script>
+
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>主减速器传动比 i₀ 影响分析 · 汽车理论</title>
 <style>
