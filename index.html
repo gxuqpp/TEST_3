@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>主减速器传动比 i₀ 影响分析 · 汽车理论</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap');
+:root{
+  --bg:#0a1220;--surf:#13202e;--surf2:#1a2d40;--surf3:#203550;
+  --ink:#dde8f4;--ink2:#a8c0d8;--ink3:#5a7a9a;
+  --blue:#4d9fff;--blue2:#6db8ff;--blue-bg:#0c2040;
+  --red:#ff6b5a;--green:#3ddc84;--amber:#ffd166;--teal:#40d4c0;--violet:#a78bfa;
+  --gold:#f0c040;--gold2:#ffd060;
+  --rule:#1e3550;--rule2:#162840;
+  --mono:'JetBrains Mono',monospace;
+  --serif:'Noto Serif SC',serif;
+  --sans:'Noto Sans SC','Microsoft YaHei',sans-serif;
+  --r:6px;--r2:10px;--sh:0 4px 20px rgba(0,0,0,.4);
+  --side-w:380px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* 桌面端布局：整页固定一屏，侧栏与结果区各自滚动；窗口过窄时整页横向滚动而不再折叠成手机布局 */
+html{overflow-x:auto;overflow-y:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;
+  min-width:1024px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Header ── */
+.hdr{background:linear-gradient(135deg,#060e1c,#0d2240);padding:10px 22px;flex-shrink:0;
+  border-bottom:2px solid #1a3a6a;display:flex;align-items:center;gap:14px}
+.hdr-icon{font-size:1.8rem;filter:drop-shadow(0 0 10px #4d9fff88);flex-shrink:0}
+.hdr-text{flex:1;min-width:0}
+.hdr h1{font-family:var(--serif);font-size:1.15rem;font-weight:700;color:#fff;line-height:1.3}
+.hdr-sub{font-size:.75rem;color:rgba(255,255,255,.65);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-right{display:flex;gap:8px;align-items:center;margin-left:auto;flex-shrink:0}
+.calc-btn{padding:8px 18px;background:var(--gold);border:none;border-radius:var(--r);white-space:nowrap;
+  color:#0a1220;font-weight:700;font-size:.9rem;cursor:pointer;transition:.15s;
+  box-shadow:0 2px 10px rgba(240,192,64,.3)}
+.calc-btn:hover{background:var(--gold2)}
+.calc-btn.base-btn:hover{filter:brightness(1.15)}
+.calc-btn:focus-visible,.gear-sel:focus-visible{outline:2px solid var(--blue2);outline-offset:2px}
+.gear-sel{background:#0c1e30;border:1px solid #1a3a6a;color:var(--ink);
+  padding:7px 10px;border-radius:var(--r);font-size:.88rem;cursor:pointer}
+
+/* ── Layout：左侧参数栏（可拖动分隔条调宽）+ 右侧结果区 ── */
+.layout{display:grid;grid-template-columns:var(--side-w) 6px minmax(0,1fr);flex:1;min-height:0}
+.left{background:#0d1a28;overflow-y:auto;padding:12px;min-width:0;scrollbar-gutter:stable}
+.splitter{background:var(--rule2);border-inline:1px solid var(--rule);cursor:col-resize;position:relative;
+  transition:background .15s;touch-action:none}
+.splitter::after{content:'';position:absolute;top:50%;left:50%;width:2px;height:40px;border-radius:1px;
+  transform:translate(-50%,-50%);background:var(--ink3);opacity:.55}
+.splitter:hover,.splitter:focus-visible,body.side-dragging .splitter{background:var(--blue-bg);outline:none}
+.splitter:hover::after,.splitter:focus-visible::after,body.side-dragging .splitter::after{background:var(--blue);opacity:1}
+body.side-dragging{cursor:col-resize;user-select:none}
+.right{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+
+/* ── Sidebar groups ── */
+.group{background:var(--surf);border:1px solid var(--rule);border-radius:var(--r2);
+  overflow:hidden;margin-bottom:9px}
+.group-hdr{background:#081628;color:#aaccee;padding:8px 12px;
+  font-size:.78rem;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:7px;
+  border-bottom:1px solid var(--rule);cursor:pointer}
+.group-hdr .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.group-hdr .arr{margin-left:auto;transition:.2s;font-size:.7rem;color:var(--ink3)}
+.group.collapsed .group-body{display:none}
+.group.collapsed .arr{transform:rotate(-90deg)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule)}
+.pf{background:var(--surf);padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.pf.full{grid-column:1/-1}
+.left.is-roomy #g_veh .pgrid{grid-template-columns:repeat(3,1fr)}
+.left.is-wide #g_veh .pgrid,.left.is-wide #g_calc .pgrid{grid-template-columns:repeat(4,1fr)}
+.pl{font-size:.73rem;color:var(--ink3);display:flex;justify-content:space-between}
+.pu{font-size:.68rem;font-family:var(--mono)}
+.pf input,.pf select{width:100%;background:#0a1628;border:1px solid var(--rule);
+  border-radius:4px;padding:5px 7px;color:var(--ink);font-family:var(--mono);
+  font-size:.83rem;outline:none;transition:.15s}
+.pf input:focus,.pf select:focus{border-color:var(--blue)}
+
+/* ── i₀ list ── */
+.i0-list{padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.i0-row{display:flex;align-items:center;gap:5px}
+.i0-row input{flex:1;background:#0a1628;border:1px solid var(--rule);border-radius:4px;
+  padding:5px 8px;color:var(--amber);font-family:var(--mono);font-size:.88rem;
+  font-weight:700;outline:none;text-align:center}
+.i0-row input:focus{border-color:var(--amber)}
+.i0-color-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.i0-del{background:none;border:none;color:#4a2828;cursor:pointer;font-size:.88rem;
+  padding:0 3px;transition:.15s}
+.i0-del:hover{color:var(--red)}
+.i0-add-btn{padding:5px;border:1px dashed var(--rule);border-radius:var(--r);
+  background:none;color:var(--ink3);font-size:.8rem;cursor:pointer;
+  width:100%;margin-top:3px;transition:.15s}
+.i0-add-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* ── Tabs ── */
+.tabbar{background:#0d1a28;border-bottom:2px solid var(--rule);
+  padding:0 16px;display:flex;gap:2px;flex-shrink:0}
+.tab{padding:11px 18px;cursor:pointer;font:inherit;font-size:.9rem;font-weight:500;
+  color:var(--ink3);background:none;border:none;border-bottom:3px solid transparent;
+  border-radius:4px 4px 0 0;transition:.15s;white-space:nowrap;margin-bottom:-2px}
+.tab:hover{color:var(--ink2);background:rgba(77,159,255,.06)}
+.tab:focus-visible{outline:2px solid var(--blue2);outline-offset:-2px}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:700;background:var(--surf)}
+.pages{flex:1;min-height:0;min-width:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;
+  scrollbar-gutter:stable}
+.page{display:none;flex-direction:column;gap:14px;min-width:0;flex-shrink:0}
+.page.active{display:flex}
+
+/* 并排排布：结果区足够宽时两图左右并列（宽度由脚本按实际可用宽度判断） */
+.duo{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.right.is-wide .duo{grid-template-columns:repeat(2,minmax(0,1fr))}
+.right.is-wide .duo--power{grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr)}
+.right.is-wide .duo--compare{grid-template-columns:minmax(0,1fr)}
+.right.is-xwide .duo--compare{grid-template-columns:minmax(0,1.35fr) minmax(400px,1fr)}
+
+/* ── Cards ── */
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:var(--surf);border:1px solid var(--rule);border-radius:var(--r2);
+  padding:12px 16px;position:relative;overflow:hidden;box-shadow:var(--sh)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.blue::before{background:var(--blue)}.card.green::before{background:var(--green)}
+.card.amber::before{background:var(--amber)}.card.red::before{background:var(--red)}
+.card.teal::before{background:var(--teal)}.card.violet::before{background:var(--violet)}
+.card-label{font-size:.72rem;color:var(--ink3);font-weight:600;margin-bottom:4px}
+.card-val{font-family:var(--mono);font-size:1.4rem;font-weight:700;line-height:1;color:var(--blue)}
+.card.green .card-val{color:var(--green)}.card.amber .card-val{color:var(--amber)}
+.card.red .card-val{color:var(--red)}.card.teal .card-val{color:var(--teal)}
+.card.violet .card-val{color:var(--violet)}
+.card-unit{font-size:.7rem;color:var(--ink3);margin-left:2px}
+.card-note{font-size:.74rem;color:var(--ink3);margin-top:3px}
+
+/* ── Chart boxes ── */
+.cbox{background:var(--surf);border:1px solid var(--rule);border-radius:var(--r2);
+  padding:14px 16px;box-shadow:var(--sh);min-width:0}
+.ctitle{font-family:var(--serif);font-size:1rem;font-weight:600;color:var(--ink);
+  margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctitle--bar{justify-content:space-between;row-gap:8px}
+.ctitle-main{display:flex;align-items:center;gap:8px}
+.ctitle-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--sans);font-weight:400}
+.ctitle-tools .y-selector{margin-bottom:0}
+.ctag{font-size:.7rem;font-family:var(--mono);background:var(--blue-bg);
+  color:var(--blue2);padding:2px 7px;border-radius:4px;font-weight:600;border:1px solid #1a3a70}
+/* 图高按窗口高度取值，常见 1080p 屏幕下无需上下滚动即可看全 */
+.chart-frame{position:relative;width:100%;min-width:0;height:clamp(300px,44vh,460px)}
+.right.is-wide .duo .chart-frame{height:clamp(320px,calc(100vh - 318px),640px)}
+.right.is-wide #pg4 .duo .chart-frame{height:clamp(320px,calc(100vh - 330px),620px)}
+.chart-frame--tradeoff{height:clamp(380px,calc(100vh - 384px),760px)}
+.chart-frame--radar{height:clamp(380px,50vh,520px);max-width:820px;margin-inline:auto}
+.right.is-xwide .duo .chart-frame--radar{height:clamp(380px,calc(100vh - 318px),540px)}
+.chart-frame--bar{height:clamp(260px,34vh,360px)}
+.plotly-host{width:100%;height:100%}
+.chart-frame canvas{display:block;width:100%!important;height:100%!important}
+.chart-caption{font-size:.8rem;color:var(--ink2);line-height:1.7;margin-top:8px}
+.chart-caption strong{color:var(--gold)}
+.chart-reset{border:1px solid var(--rule);background:var(--surf2);color:var(--ink2);
+  border-radius:var(--r);padding:5px 12px;font:inherit;font-size:.78rem;cursor:pointer}
+.chart-reset:hover{border-color:var(--blue);color:var(--blue)}
+.chart-reset:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* 主图：右侧放结论与读图说明 */
+.tradeoff-body{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.right.is-wide .tradeoff-body{grid-template-columns:minmax(0,1fr) 260px}
+.tradeoff-aside{display:flex;flex-direction:column;gap:10px;min-width:0}
+.tradeoff-aside .chart-caption{margin-top:0;padding:10px 12px;font-size:.85rem;
+  background:#0a1a2c;border:1px solid var(--rule);border-radius:var(--r)}
+.read-note{font-size:.8rem;color:var(--ink3);line-height:1.75;padding:10px 12px;
+  background:#081628;border-radius:var(--r);border-left:3px solid var(--blue)}
+.read-note-title{color:var(--ink2);font-weight:600;margin-bottom:4px}
+.read-note p+p{margin-top:6px}
+
+/* ── Comparison table ── */
+.cmp-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.cmp-table th{background:#081628;color:#99bbdd;padding:9px 12px;text-align:center;
+  border:1px solid var(--rule);font-size:.82rem;font-weight:700}
+.cmp-table td{padding:8px 12px;border:1px solid var(--rule2);text-align:center;
+  font-family:var(--mono);font-size:.9rem}
+.cmp-table tr:nth-child(even) td{background:#111d2c}
+.cmp-table .best{color:var(--green);font-weight:700}
+.cmp-table .worst{color:var(--red)}
+.cmp-table .i0-label{color:var(--amber);font-weight:700}
+.table-scroll{overflow-x:auto}
+.cmp-table th,.cmp-table td{white-space:nowrap}
+.cmp-table th:first-child,.cmp-table td:first-child{position:sticky;left:0;z-index:1;background:#13202e}
+.cmp-table tr:nth-child(even) td:first-child{background:#111d2c}
+
+/* ── Y-axis selector ── */
+.y-selector{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.y-btn{padding:5px 14px;border-radius:var(--r);font-size:.8rem;font-weight:700;
+  cursor:pointer;border:1px solid var(--rule);background:var(--surf2);
+  color:var(--ink3);transition:.15s}
+.y-btn.active{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
+
+/* ── 滚动条（桌面端加宽，便于鼠标拖动）── */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#24405e;border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#33587f;background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* ── 与实验2一致的参数控件 ── */
+.gear-table{width:100%;font-size:.85rem;border-collapse:collapse}
+.gear-table th{white-space:nowrap;background:#0a1628;color:#c8dcff;padding:7px 10px;font-size:.78rem;font-weight:700;border-bottom:1px solid var(--rule)}
+.gear-table td{padding:6px 10px;border-bottom:1px solid var(--rule2);font-family:var(--mono);text-align:center;font-size:.85rem}
+
+/* ── Polynomial panel ── */
+.poly-toolbar{display:flex;gap:6px;align-items:center;padding:10px 12px;
+  border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.poly-toolbar select{background:#0d1520;border:1px solid var(--rule);color:var(--ink);
+  padding:5px 8px;border-radius:var(--r);font-size:.8rem;font-family:var(--mono);cursor:pointer}
+.poly-btn{padding:5px 11px;border:none;border-radius:var(--r);font-size:.78rem;
+  font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.poly-btn.fit{background:#0f2840;color:var(--blue);border:1px solid var(--blue)}
+.poly-btn.fit:hover{background:var(--blue-bg)}
+.poly-btn.matlab{background:#1a2a0f;color:var(--green);border:1px solid var(--green)}
+.poly-btn.matlab:hover{background:#0f2820}
+.poly-btn.add{background:#1a2010;color:var(--teal);border:1px solid var(--teal)}
+.poly-btn.add:hover{background:#0a2028}
+.poly-btn.del{background:#2a0f0f;color:var(--red);border:1px solid var(--red)}
+.poly-btn.wide{background:var(--surf2);color:var(--ink2);border:1px solid var(--rule);margin-left:auto}
+.poly-btn.wide:hover{border-color:var(--blue);color:var(--blue)}
+
+.poly-table-wrap{overflow-x:auto;padding:8px 12px 12px}
+.poly-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.poly-table th{background:#0a1628;color:#c8dcff;padding:6px 5px;text-align:center;
+  border:1px solid var(--rule);font-size:.75rem;font-weight:700;white-space:nowrap}
+.poly-table th.colN{background:#0a2040;color:var(--amber)}
+.poly-table th.colC{background:#0a1628;color:var(--blue2)}
+.poly-table th.colR{background:#0a2810;color:var(--green)}
+.poly-table td{padding:4px 3px;border:1px solid var(--rule2);vertical-align:middle}
+.poly-table td input{width:100%;background:#0d1520;border:1px solid transparent;
+  border-radius:4px;padding:4px 5px;color:var(--ink);font-family:var(--mono);
+  font-size:.78rem;text-align:right;outline:none;min-width:0}
+.poly-table td input:focus{border-color:var(--blue);background:#0f2040}
+.poly-table td input.n-input{color:var(--amber);font-weight:700;text-align:center}
+.poly-table td.r2-cell{text-align:center;font-family:var(--mono);font-size:.78rem}
+.r2-hi{color:var(--green)}
+.r2-mid{color:var(--amber)}
+.r2-lo{color:var(--red)}
+.poly-table td.del-cell{text-align:center}
+.del-row-btn{background:none;border:none;color:#5a3030;cursor:pointer;font-size:.9rem;
+  transition:.15s;padding:0 4px}
+.del-row-btn:hover{color:var(--red)}
+.poly-table td.pemax-cell{text-align:right;font-family:var(--mono);font-size:.75rem;color:var(--ink3)}
+
+.poly-formula-hint{padding:8px 12px;font-family:var(--mono);font-size:.78rem;
+  color:var(--ink3);background:#0a1628;border-top:1px solid var(--rule);line-height:1.8}
+/* ── 通用小工具栏（引擎/负荷数据/图片导出）── */
+.mini-toolbar{display:flex;gap:6px;align-items:center;padding:9px 12px;
+  border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.mini-toolbar select,.mini-toolbar input{background:#0d1520;border:1px solid var(--rule);color:var(--ink);
+  padding:5px 8px;border-radius:var(--r);font-size:.8rem;font-family:var(--mono)}
+.chk-line{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:.74rem;color:var(--ink3);cursor:pointer}
+.chk-line input{width:auto!important}
+
+/* ── 发动机扭矩多项式系数网格 ── */
+.eng-coef-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 12px 10px}
+.eng-coef-grid .ec{display:flex;flex-direction:column;gap:2px}
+.eng-coef-grid .ec label{font-size:.68rem;color:var(--amber);font-family:var(--mono)}
+.eng-coef-grid .ec input{width:100%;background:#0d1520;border:1px solid var(--rule);border-radius:var(--r);
+  padding:5px 7px;color:var(--ink);font-family:var(--mono);font-size:.82rem}
+.eng-coef-grid .ec input:focus{border-color:var(--red);outline:none}
+.left.is-roomy .eng-coef-grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.eng-formula{padding:7px 12px;font-family:var(--mono);font-size:.74rem;color:var(--ink3);
+  background:#0a1628;border-top:1px solid var(--rule);line-height:1.7}
+.eng-formula b{color:var(--red)}
+.gear-table td input{width:100%;min-width:56px;background:#0a1628;border:1px solid var(--rule);border-radius:4px;color:var(--ink);font-family:var(--mono);padding:3px 5px;text-align:center}
+.base-btn{flex:none}
+.poly-table td input{min-width:100px}
+.poly-table td input.n-input{min-width:68px}
+.poly-table th.colN{width:1%}
+.left.is-wide .poly-table td input{padding:4px 3px}
+</style>
+
+
+
+
+<!-- LAB_PLATFORM_STYLE_BEGIN -->
+<style>
+/* The course layer uses only lab-prefixed selectors. */
+body.lab-enhanced{margin:0}
+#lab-app{min-width:0;min-height:0}
+.lab{font-family:'Microsoft YaHei',sans-serif;font-size:14px;line-height:1.65;color:#e7effb;box-sizing:border-box}
+.lab *{box-sizing:border-box}
+.lab [hidden],.lab[hidden]{display:none!important}
+.lab-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;padding:8px 14px;background:#081425;border-bottom:1px solid #304966;min-width:0}
+.lab-toolbar .lab-identity{flex:1;min-width:160px;font-size:12px;color:#b8cbe0;overflow-wrap:anywhere}
+.lab-toolbar strong{color:#ffd166}
+.lab button,.lab input,.lab select,.lab textarea{font:inherit}
+.lab button{border:1px solid #425b78;border-radius:6px;background:#203853;color:#e7effb;padding:7px 12px;cursor:pointer;line-height:1.5;min-height:36px}
+.lab button:hover{border-color:#79b6ff;background:#284866}
+.lab button:disabled{cursor:not-allowed;opacity:.45}
+.lab .lab-primary{background:#2567ae;border-color:#4a94e8;color:white}
+.lab .lab-good{color:#8ae3b4}
+.lab .lab-bad{color:#ffada8}
+.lab button:focus-visible,.lab input:focus-visible,.lab textarea:focus-visible,.lab select:focus-visible{outline:2px solid #87bdff;outline-offset:2px}
+.lab input,.lab textarea,.lab select{width:100%;background:#0e1c2d;color:#e7effb;border:1px solid #425b78;border-radius:5px;padding:8px;min-width:0;font-size:14px}
+.lab textarea{resize:vertical;line-height:1.7}
+.lab label{display:block;margin-top:10px;color:#bbcee4;font-size:13px}
+.lab-overlay{position:fixed;inset:0;z-index:10000;background:#020916df;display:flex;align-items:center;justify-content:center;padding:16px;overscroll-behavior:contain}
+.lab-dialog{width:min(1120px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#132439;border:1px solid #405877;border-radius:12px;padding:20px;box-shadow:0 18px 80px #0008;scrollbar-gutter:stable}
+.lab-dialog.lab-small{max-width:440px}
+.lab-heading{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+.lab h2{font-size:20px;line-height:1.4;color:#fff;margin:0}
+.lab h3{font-size:16px;color:#dbeaff;margin:20px 0 8px}
+.lab p{margin:8px 0}
+.lab .lab-muted{color:#aac0d8;font-size:12px}
+.lab .lab-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.lab .lab-status{white-space:pre-wrap;overflow-wrap:anywhere;color:#bcd8fa;margin:10px 0;min-height:22px}
+.lab .lab-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.lab .lab-score{display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:16px 0;border-block:1px solid #38516c;margin:16px 0}
+.lab .lab-score strong{font-size:30px;color:#ffd166}
+.lab .lab-score span{color:#c0d3e8}
+.lab .lab-scroll{overflow:auto;max-width:100%;border:1px solid #38516c;border-radius:6px}
+.lab table{border-collapse:collapse;width:100%;font-size:12px;min-width:680px;background:#122237}
+.lab th,.lab td{border:1px solid #344d68;padding:8px 10px;text-align:left;vertical-align:middle;overflow-wrap:anywhere}
+.lab th{background:#1b3550;color:#d7e8ff}
+.lab .lab-num{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.lab td details{max-width:260px;min-width:120px}
+.lab summary{cursor:pointer;color:#9fcbff}
+.lab pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 Consolas,'Microsoft YaHei',monospace;max-height:300px;overflow:auto;background:#0b1929;padding:12px;border-radius:5px}
+.lab .lab-field-score{max-width:80px;padding:4px;min-height:30px}
+.lab .lab-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}
+.lab .lab-stat{padding:12px;border:1px solid #38516c;border-radius:6px;background:#19314a}
+.lab .lab-stat b{display:block;font-size:23px;color:#9bcaff}
+.lab .lab-stat span{font-size:12px;color:#bacde2}
+.lab .lab-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lab .lab-inline label{margin:0}
+.lab .lab-link{color:#a7d1ff}
+.lab .lab-warning{color:#ffd796}
+body.lab-enhanced{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#lab-app{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#lab-app>.hdr,#lab-app>.tabs,#lab-app>.tabbar{flex-shrink:0}
+#lab-app>.layout{flex:1;min-height:0;height:auto!important;min-width:0}
+
+.input-hint{flex-shrink:0;margin:12px 16px 0;padding:12px 16px;border:1px solid #6a5418;border-radius:var(--r2);
+  background:#241c08;color:#ffe3a0;font-size:.86rem;line-height:1.7}
+.input-hint b{color:#fff}
+.input-hint ul{margin:4px 0 0 1.2em}
+.pf input:placeholder-shown,.gear-in:placeholder-shown,.i0-row input:placeholder-shown,#eng_div:placeholder-shown{border-color:#6a5418}
+.ec input:placeholder-shown,.poly-table input:placeholder-shown{border-color:#6a5418}
+input::placeholder{color:#7a6a40;font-weight:400}
+</style>
+<!-- LAB_PLATFORM_STYLE_END -->
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-icon">⚙️</div>
+  <div class="hdr-text">
+    <h1>主减速器传动比 i₀ 对汽车性能影响分析</h1>
+    <div class="hdr-sub">燃油经济性 · 动力性综合权衡 &nbsp;—&nbsp; 《汽车理论》第6版（余志生）</div>
+  </div>
+  <div class="hdr-right">
+    <select class="gear-sel" id="gear_type" onchange="onGearChange()">
+      <option value="5" selected>五档变速器</option>
+      <option value="4">四档变速器</option>
+    </select>
+    <button class="calc-btn" onclick="runAll()" title="快捷键 Ctrl+Enter">▶ 全部计算</button>
+    <button class="calc-btn base-btn" style="background:#2e7d5b;color:#fff" onclick="saveMyBaseline()" title="把当前全部参数保存到本机浏览器">💾 保存当前参数为基准</button>
+    <button class="calc-btn base-btn" style="background:#8a5a12;color:#fff" onclick="restoreMyBaseline()" title="恢复上次保存的基准参数">↺ 恢复我的基准</button>
+  </div>
+</div>
+
+<div class="layout">
+<!-- ══ 左侧 ══ -->
+<div class="left">
+  <div class="left-inner">
+
+  <!-- i₀ 列表 -->
+  <div class="group" id="g_i0">
+    <div class="group-hdr" onclick="tog('g_i0')">
+      <div class="dot" style="background:var(--amber)"></div>主减速器传动比 i₀ 列表
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body">
+      <div class="i0-list" id="i0_list"></div>
+      <div style="padding:0 10px 8px">
+        <button class="i0-add-btn" onclick="addI0Row()">＋ 添加 i₀ 值</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 整车参数（实验1、2） -->
+  <div class="group" id="g_veh">
+    <div class="group-hdr" onclick="tog('g_veh')">
+      <div class="dot" style="background:var(--green)"></div>整车基本参数
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body">
+      <div class="pgrid">
+        <div class="pf"><div class="pl">总质量 m<span class="pu">kg</span></div>
+          <input type="number" id="p_m" value="" placeholder="待填" step="10"></div>
+        <div class="pf"><div class="pl">车轮半径 r<span class="pu">m</span></div>
+          <input type="number" id="p_r" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">滚阻系数 f</div>
+          <input type="number" id="p_f" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">CD·A<span class="pu">m²</span></div>
+          <input type="number" id="p_CdA" value="" placeholder="待填" step="0.01"></div>
+        <div class="pf"><div class="pl">传动效率 ηt</div>
+          <input type="number" id="p_eta" value="" placeholder="待填" step="0.01"></div>
+        <div class="pf"><div class="pl">飞轮惯量 If<span class="pu">kg·m²</span></div>
+          <input type="number" id="p_If" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">前轮惯量 Iw1<span class="pu">×2 kg·m²</span></div>
+          <input type="number" id="p_Iw1" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">后轮惯量 Iw2<span class="pu">×4 kg·m²</span></div>
+          <input type="number" id="p_Iw2" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">轴距 L<span class="pu">m</span></div>
+          <input type="number" id="L_wb" value="" placeholder="待填" step="0.01"></div>
+        <div class="pf"><div class="pl">质心前距 a<span class="pu">m</span></div>
+          <input type="number" id="a_cg" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">质心高 hg<span class="pu">m</span></div>
+          <input type="number" id="hg" value="" placeholder="待填" step="0.01"></div>
+        <div class="pf"><div class="pl">重力加速度 g<span class="pu">m/s²</span></div>
+          <input type="text" value="动力性9.81 / 经济性9.8" readonly title="与实验1（9.81）和实验2（9.8）分别保持一致" style="font-size:.78rem!important"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 变速器（实验2格式） -->
+  <div class="group" id="g_trans">
+    <div class="group-hdr" onclick="tog('g_trans')">
+      <div class="dot" style="background:var(--blue)"></div>变速器传动比
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body" style="padding:10px">
+      <table class="gear-table">
+        <tr><th>档位</th><th class="gear-col4">4档</th><th class="gear-col5">5档</th></tr>
+        <tr><td>Ⅰ</td><td class="gear-col4"><input type="number" id="g4_0" class="gear-in" value="" placeholder="待填" step="any"></td><td class="gear-col5"><input type="number" id="g5_0" class="gear-in" value="" placeholder="待填" step="any"></td></tr>
+        <tr><td>Ⅱ</td><td class="gear-col4"><input type="number" id="g4_1" class="gear-in" value="" placeholder="待填" step="any"></td><td class="gear-col5"><input type="number" id="g5_1" class="gear-in" value="" placeholder="待填" step="any"></td></tr>
+        <tr><td>Ⅲ</td><td class="gear-col4"><input type="number" id="g4_2" class="gear-in" value="" placeholder="待填" step="any"></td><td class="gear-col5"><input type="number" id="g5_2" class="gear-in" value="" placeholder="待填" step="any"></td></tr>
+        <tr><td>Ⅳ</td><td class="gear-col4"><input type="number" id="g4_3" class="gear-in" value="" placeholder="待填" step="any"></td><td class="gear-col5"><input type="number" id="g5_3" class="gear-in" value="" placeholder="待填" step="any"></td></tr>
+        <tr><td>Ⅴ</td><td class="gear-col4">—</td><td class="gear-col5"><input type="number" id="g5_4" class="gear-in" value="" placeholder="待填" step="any"></td></tr>
+      </table>
+      <div style="font-size:.72rem;color:var(--ink3);margin-top:6px">按页面顶部所选变速器类型取用对应一列。</div>
+    </div>
+  </div>
+
+  <!-- 发动机外特性（阶数/除数可调） -->
+  <div class="group" id="g_eng">
+    <div class="group-hdr" onclick="tog('g_eng')">
+      <div class="dot" style="background:var(--red)"></div>发动机外特性（Ttq 多项式 · 阶数/除数可调）
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body">
+      <div class="pgrid">
+        <div class="pf"><div class="pl">n_min<span class="pu">r/min</span></div>
+          <input type="number" id="p_nmin" value="" placeholder="待填" step="50"></div>
+        <div class="pf"><div class="pl">n_max<span class="pu">r/min</span></div>
+          <input type="number" id="p_nmax" value="" placeholder="待填" step="50"></div>
+      </div>
+      <div class="mini-toolbar">
+        <span style="font-size:.74rem;color:var(--ink3)">阶数</span>
+        <select id="eng_deg" onchange="onEngDegChange()">
+          <option value="1">1 阶</option><option value="2">2 阶</option>
+          <option value="3">3 阶</option><option value="4" selected>4 阶</option>
+          <option value="5">5 阶</option><option value="6">6 阶</option>
+          <option value="7">7 阶</option><option value="8">8 阶</option>
+          <option value="9">9 阶</option><option value="10">10 阶</option>
+        </select>
+        <span style="font-size:.74rem;color:var(--ink3);margin-left:4px">除数 x = n /</span>
+        <input type="number" id="eng_div" value="" data-old="" placeholder="待填" step="any" style="width:76px" onchange="onEngDivChange()">
+      </div>
+      <label class="chk-line"><input type="checkbox" id="eng_conv"> 修改除数时自动换算系数（扭矩曲线保持不变）</label>
+      <div class="eng-coef-grid" id="eng_coef_grid"></div>
+      <div class="eng-formula" id="eng_formula"></div>
+    </div>
+  </div>
+
+  <!-- 负荷特性（实验2格式，由学生填写） -->
+  <div class="group" id="g_load">
+    <div class="group-hdr" onclick="tog('g_load')">
+      <div class="dot" style="background:var(--violet)"></div>负荷特性 be-Pe 多项式系数
+      <span id="poly_count" style="margin-left:8px;font-size:.72rem;color:var(--violet);font-weight:400"></span>
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body">
+      <div class="poly-toolbar">
+        <select id="poly_deg" onchange="onPolyDegChange()">
+          <option value="2">2阶</option><option value="3">3阶</option>
+          <option value="4" selected>4阶</option><option value="5">5阶</option><option value="6">6阶</option>
+        </select>
+        <button class="poly-btn add" onclick="addPolyRow()">＋ 添加转速点</button>
+        <button class="poly-btn wide" id="side_wide_btn" onclick="toggleWideSide()" title="参数栏也可拖动右侧分隔条调宽，双击分隔条恢复默认">⇔ 加宽参数栏</button>
+      </div>
+      <div class="mini-toolbar">
+        <span style="font-size:.74rem;color:var(--ink3)">等速/循环 bₑ 取法</span>
+        <select id="be_mode" style="flex:1;min-width:0">
+          <option value="A" selected>方案A：剔除外推点后拟合（推荐）</option>
+          <option value="B">方案B：按转速直接插值</option>
+          <option value="orig">原算法：全部测试点拟合（旧版结果）</option>
+        </select>
+      </div>
+      <div class="poly-table-wrap">
+        <table class="poly-table"><thead id="poly_thead"></thead><tbody id="poly_tbody"></tbody></table>
+      </div>
+      <div class="poly-formula-hint">be(Pe) = a₀ + a₁·Pe + a₂·Pe² + …　[g/(kW·h)]，Pe [kW]<br>
+        相邻测试转速之间按转速线性插值。请按实验指导书给出的负荷特性数据逐格填写转速和系数。</div>
+    </div>
+  </div>
+
+  <!-- 动力性计算设置（实验1） -->
+  <div class="group" id="g_calc">
+    <div class="group-hdr" onclick="tog('g_calc')">
+      <div class="dot" style="background:var(--teal)"></div>加速工况（实验1）与循环工况（实验2）
+      <span class="arr">▼</span>
+    </div>
+    <div class="group-body">
+      <div class="pgrid">
+        <div class="pf"><div class="pl">起步档</div>
+          <select id="start_gear"><option value="2" selected>2档</option></select></div>
+        <div class="pf"><div class="pl">目标车速<span class="pu">km/h</span></div>
+          <input type="number" id="accel_target" value="" placeholder="待填" step="1"></div>
+        <div class="pf"><div class="pl">怠速油耗 Qid<span class="pu">mL/s</span></div>
+          <input type="number" id="p_Qid" value="" placeholder="待填" step="0.001"></div>
+        <div class="pf"><div class="pl">燃油重度 γ<span class="pu">N/L</span></div>
+          <input type="number" id="p_gamma" value="" placeholder="待填" step="0.01" title="燃油重度，等速与循环油耗共用"></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--ink3);padding:6px 10px 8px;line-height:1.7">
+        加速时间：起步档最低稳定车速 → 目标车速，n ≥ 0.97·n_max 时换档（与实验1相同）。<br>
+        循环油耗：JB 六工况顶档与次高档两种预设（与实验2相同）。</div>
+    </div>
+  </div>
+
+  </div><!-- /left-inner -->
+</div><!-- /left -->
+<div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="调整参数栏宽度"
+  aria-valuemin="300" tabindex="0" title="拖动调整参数栏宽度；双击恢复默认；也可用 ← → 键微调"></div>
+
+<!-- ══ 右侧 ══ -->
+<div class="right">
+  <div class="tabbar">
+    <button type="button" class="tab active" onclick="sw(0)" id="tab0">📈 经济性–动力性曲线</button>
+    <button type="button" class="tab" onclick="sw(1)" id="tab1">📋 综合对比</button>
+    <button type="button" class="tab" onclick="sw(2)" id="tab2">⛽ 等速油耗</button>
+    <button type="button" class="tab" onclick="sw(3)" id="tab3">🏎 加速曲线</button>
+    <button type="button" class="tab" onclick="sw(4)" id="tab4">⚡ 功率平衡</button>
+  </div>
+
+  <div class="input-hint" id="input_hint" role="status" hidden></div>
+  <div class="pages">
+
+    <!-- ① 主图 -->
+    <div class="page active" id="pg0">
+      <div class="cards" id="summary_cards"></div>
+      <div class="cbox">
+        <div class="ctitle ctitle--bar">
+          <div class="ctitle-main">燃油经济性 — 动力性权衡曲线 <span class="ctag">Qs vs t_acc</span></div>
+          <div class="ctitle-tools">
+            <div class="y-selector" id="metric_selector">
+              <button class="y-btn active" onclick="setYMode('q60',this)">60km/h等速</button>
+              <button class="y-btn" onclick="setYMode('q80',this)">80km/h等速</button>
+              <button class="y-btn" onclick="setYMode('qjb',this)">JB六工况</button>
+            </div>
+            <div class="y-selector" id="unit_selector">
+              <button class="y-btn active" onclick="setFuelUnit('l100',this)" id="unit_l100">L/100km</button>
+              <button class="y-btn" onclick="setFuelUnit('kml',this)" id="unit_kml">km/L</button>
+            </div>
+            <button class="chart-reset" onclick="renderTradeoff()" title="缩放或平移后恢复默认视图">恢复图表视图</button>
+          </div>
+        </div>
+        <div class="tradeoff-body">
+          <div class="chart-frame chart-frame--tradeoff"><div id="chart_tradeoff" class="plotly-host"></div></div>
+          <aside class="tradeoff-aside">
+            <div class="chart-caption" id="tradeoff_best" aria-live="polite"></div>
+            <div class="read-note">
+              <div class="read-note-title">读图说明</div>
+              <p>横轴 = 起步档→目标车速加速时间（动力性，越小越好；算法同实验1）</p>
+              <p>纵轴 = 油耗（经济性，L/100km 越小越好；km/L 越大越好；算法同实验2）</p>
+              <p>各颜色代表不同 i₀，调整传动比后的变化以计算点为准。</p>
+              <p>金色圆环按当前工况的 Qs·t 最小值标出综合推荐点（Qs 使用 L/100km）。</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 综合对比 -->
+    <div class="page" id="pg1">
+      <div class="duo duo--compare">
+      <div class="cbox">
+        <div class="ctitle">各 i₀ 值综合性能对比 <span class="ctag">全量对比</span></div>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="各主减速比性能对比，可横向滚动"><table class="cmp-table" id="cmp_table">
+          <thead><tr id="cmp_head"></tr></thead>
+          <tbody id="cmp_body"></tbody>
+        </table></div>
+        <div class="chart-caption" id="cmp_note">绿色为该项最优值，红色为最差值。</div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">关键指标雷达对比 <span class="ctag">归一化</span></div>
+        <div class="chart-frame chart-frame--radar"><div id="chart_radar" class="plotly-host"></div></div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ③ 等速油耗 -->
+    <div class="page" id="pg2">
+      <div class="duo">
+      <div class="cbox">
+        <div class="ctitle">等速百公里油耗曲线（各 i₀）
+          <span class="ctag">Qs–ua 顶档</span>
+        </div>
+        <div class="chart-frame"><canvas id="chart_fuel" aria-label="顶档等速油耗曲线" role="img"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">等速油耗（次高档）
+          <span class="ctag">Qs–ua 次高档</span>
+        </div>
+        <div class="chart-frame"><canvas id="chart_fuel2" aria-label="次高档等速油耗曲线" role="img"></canvas></div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ④ 加速曲线 -->
+    <div class="page" id="pg3">
+      <div class="duo">
+      <div class="cbox">
+        <div class="ctitle">v–t 加速曲线（各 i₀）
+          <span class="ctag">速度–时间</span>
+        </div>
+        <div class="chart-frame"><canvas id="chart_vt" aria-label="速度随时间变化曲线" role="img"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">加速度 j–ua（各 i₀，各档曲线）
+          <span class="ctag">动力性</span>
+        </div>
+        <div class="chart-frame"><canvas id="chart_accel" aria-label="各档加速度随车速变化曲线" role="img"></canvas></div>
+        <div class="chart-caption">同色表示同一 i₀；各档曲线独立绘制，重叠区可比较换档前后的加速度。</div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ⑤ 功率平衡 -->
+    <div class="page" id="pg4">
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:.85rem;color:var(--ink3);align-self:center">选择 i₀ 查看功率平衡：</span>
+        <div id="i0_selector" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="duo duo--power">
+      <div class="cbox">
+        <div class="ctitle">功率平衡图 <span class="ctag" id="power_tag">P–ua</span></div>
+        <div class="chart-frame"><canvas id="chart_power" aria-label="各档功率与行驶阻力功率平衡图" role="img"></canvas></div>
+      </div>
+      <div class="cbox">
+        <div class="ctitle">最高车速 vs i₀ <span class="ctag">柱状图</span></div>
+        <div class="chart-frame chart-frame--bar"><canvas id="chart_umax" aria-label="各主减速比最高车速对比" role="img"></canvas></div>
+      </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /right -->
+</div><!-- /layout -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// 常量与全局状态
+//   动力性算法 = 实验1（test1）computeAll，g = 9.81
+//   经济性算法 = 实验2（test2）recalcAll / calcCycle，g = 9.8，ρg = 7.15 N/L
+// ═══════════════════════════════════════════════════════════════
+const I0_COLORS=['#4d9fff','#3ddc84','#ffd166','#ff9544','#ff6b5a','#a78bfa','#40d4c0','#f472b6'];
+const GEAR_NAMES=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ'];
+const GEAR_DEFAULTS={4:[6.09,3.09,1.71,1.00], 5:[5.56,2.769,1.644,1.00,0.793]};
+const GEAR_RATIOS=GEAR_DEFAULTS;
+const G_DYN=9.81;      // 实验1 动力性
+const G_ECO=9.8;       // 实验2 经济性
+const RHOG=7.15;       // 实验2 等速与循环统一燃油重度 N/L
+
+// 教材 492QC-2 负荷特性系数 be = B0 + B1·Pe + B2·Pe² + B3·Pe³ + B4·Pe⁴（与实验2相同）
+const BOOK_SPEEDS=[815,1207,1614,2012,2603,3006,3403,3804];
+const BOOK_COEFFS={
+  815:  [1326.8, -416.46, 72.379, -5.8629,   0.17768],
+  1207: [1354.7, -303.98, 36.657, -2.0553,   0.043072],
+  1614: [1284.4, -189.75, 14.524, -0.51184,  0.0068164],
+  2012: [1122.9, -121.59, 7.0035, -0.18517,  0.0018555],
+  2603: [1141.0, -98.893, 4.4763, -0.091077, 0.00068906],
+  3006: [1051.2, -73.714, 2.8593, -0.05138,  0.00035032],
+  3403: [1233.9, -84.478, 2.9788, -0.047449, 0.00028230],
+  3804: [1129.7, -45.291, 0.71113,-0.00075215,-0.000038568],
+};
+const ENG_DEFAULT_COEFS=[-19.313,295.27,-165.44,40.874,-3.8445];
+
+// JB 六工况（与实验2预设 jb_top / jb_sec 相同）
+const JB_PRESETS={
+  top:[
+    {type:'const', v1:25, v2:0,  param:50,   gear:'top'},
+    {type:'accel', v1:25, v2:40, param:0.25, gear:'top'},
+    {type:'const', v1:40, v2:0,  param:250,  gear:'top'},
+    {type:'accel', v1:40, v2:50, param:0.20, gear:'top'},
+    {type:'const', v1:50, v2:0,  param:250,  gear:'top'},
+    {type:'decel', v1:50, v2:25, param:0.36, gear:'top'},
+  ],
+  sec:[
+    {type:'const', v1:25, v2:0,  param:50,   gear:'sec'},
+    {type:'accel', v1:25, v2:40, param:0.25, gear:'sec'},
+    {type:'const', v1:40, v2:0,  param:250,  gear:'sec'},
+    {type:'accel', v1:40, v2:50, param:0.20, gear:'sec'},
+    {type:'const', v1:50, v2:0,  param:250,  gear:'sec'},
+    {type:'decel', v1:50, v2:25, param:0.36, gear:'sec'},
+  ],
+};
+
+// 学生版：全部参数初始为空，由学生按实验指导书自行填写
+let engState={div:NaN, coefs:[null,null,null,null,null]};
+let polyState={deg:4, speeds:Array(8).fill(null), coeffs:Array.from({length:8},()=>Array(5).fill(null))};
+let i0List=[null,null,null,null,null];
+const blankIfNaN=v=>(v===null||v===undefined||!Number.isFinite(Number(v))||v==='')?'':v;
+let RESULTS=[];
+let yMode='q60';
+let fuelUnit='l100';
+let selectedI0idx=2;
+
+// ═══════════════════════════════════════════════════════════════
+// 公共数学工具（与实验2相同）
+// ═══════════════════════════════════════════════════════════════
+function polyvalAsc(coefs, x){
+  let val=0, xp=1;
+  for(let i=0;i<coefs.length;i++){ val+=coefs[i]*xp; xp*=x; }
+  return val;
+}
+// 降幂 polyfit（标准 MATLAB 顺序），返回升幂系数
+function polyfit(xArr, yArr, deg){
+  const n=xArr.length, m=deg+1;
+  const A=[], b=[];
+  for(let i=0;i<n;i++){
+    const row=[];
+    for(let j=0;j<m;j++) row.push(Math.pow(xArr[i],deg-j));
+    A.push(row); b.push(yArr[i]);
+  }
+  const ATA=[], ATb=[];
+  for(let i=0;i<m;i++){ ATA.push(new Array(m).fill(0)); ATb.push(0); }
+  for(let k=0;k<n;k++){
+    for(let i=0;i<m;i++){
+      for(let j=0;j<m;j++) ATA[i][j]+=A[k][i]*A[k][j];
+      ATb[i]+=A[k][i]*b[k];
+    }
+  }
+  for(let p2=0;p2<m;p2++){
+    let maxRow=p2;
+    for(let i=p2+1;i<m;i++) if(Math.abs(ATA[i][p2])>Math.abs(ATA[maxRow][p2])) maxRow=i;
+    [ATA[p2],ATA[maxRow]]=[ATA[maxRow],ATA[p2]];
+    [ATb[p2],ATb[maxRow]]=[ATb[maxRow],ATb[p2]];
+    for(let i=p2+1;i<m;i++){
+      const f=ATA[i][p2]/ATA[p2][p2];
+      for(let j=p2;j<m;j++) ATA[i][j]-=f*ATA[p2][j];
+      ATb[i]-=f*ATb[p2];
+    }
+  }
+  const c=new Array(m).fill(0);
+  for(let i=m-1;i>=0;i--){
+    c[i]=ATb[i];
+    for(let j=i+1;j<m;j++) c[i]-=ATA[i][j]*c[j];
+    c[i]/=ATA[i][i];
+  }
+  return c.reverse();
+}
+function clampBe(v){ return Math.max(200, Math.min(900, v)); }
+// be(n,Pe)：相邻测试转速的多项式按转速线性插值（与实验2相同）
+function beFromPoly(n_query, Pe){
+  const {speeds, coeffs} = polyState;
+  if(speeds.length===0) return 300;
+  if(speeds.length===1) return Math.max(200, Math.min(800, polyvalAsc(coeffs[0], Pe)));
+  if(n_query <= speeds[0]) return clampBe(polyvalAsc(coeffs[0], Pe));
+  if(n_query >= speeds[speeds.length-1]) return clampBe(polyvalAsc(coeffs[coeffs.length-1], Pe));
+  for(let i=0;i<speeds.length-1;i++){
+    if(n_query >= speeds[i] && n_query <= speeds[i+1]){
+      const t=(n_query-speeds[i])/(speeds[i+1]-speeds[i]);
+      const be1=polyvalAsc(coeffs[i], Pe);
+      const be2=polyvalAsc(coeffs[i+1], Pe);
+      return clampBe(be1+t*(be2-be1));
+    }
+  }
+  return 300;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 发动机外特性
+//   Ttq(n)      —— 实验2写法（经济性用）
+//   TqDyn(n,p)  —— 实验1写法（动力性用，n 超出 [n_min,n_max] 记 0）
+// ═══════════════════════════════════════════════════════════════
+function Ttq(n){
+  const x=n/engState.div, a=engState.coefs;
+  let s=a[0]||0, xp=1;
+  for(let k=1;k<a.length;k++){ xp*=x; s+=(a[k]||0)*xp; }
+  return s;
+}
+function TqDyn(n,p){
+  if(n<p.n_min||n>p.n_max)return 0;
+  const x=n/p.poly_div,a=p.poly_a;
+  let s=a[0];
+  for(let k=1;k<a.length;k++){let t=a[k];for(let j=0;j<k;j++)t*=x;s+=t;}
+  return s;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 动力性（实验1 computeAll 原样移植）
+// ═══════════════════════════════════════════════════════════════
+const D={
+  ua2n:(ua,ig,p)=>ua*ig*p.i0/(0.377*p.r),
+  n2ua:(n,ig,p)=>0.377*p.r*n/(ig*p.i0),
+  Ft:(n,ig,p)=>TqDyn(n,p)*ig*p.i0*p.eta_t/p.r,
+  Fr:(ua,p)=>p.f*p.ma*G_DYN+p.CDA*ua*ua/21.15,
+  delt:(ig,p)=>1+(p.Iw1+p.Iw2)/(p.ma*p.r*p.r)+p.If*ig*ig*p.i0*p.i0*p.eta_t/(p.ma*p.r*p.r),
+  acc(ua,ig,p){const n=D.ua2n(ua,ig,p);return(D.Ft(n,ig,p)-D.Fr(ua,p))/(D.delt(ig,p)*p.ma);},
+};
+function computeDyn(p){
+  const g=G_DYN;
+  const NP=250;
+  const gd=p.ig.map((ig,gi)=>{
+    const u0=D.n2ua(p.n_min,ig,p),u1=D.n2ua(p.n_max,ig,p);
+    const uas=[],fts=[],frs=[],invjs=[],js=[];
+    for(let k=0;k<=NP;k++){
+      const ua=u0+k/NP*(u1-u0), n=D.ua2n(ua,ig,p);
+      const ft=Math.max(0,D.Ft(n,ig,p)), fr=D.Fr(ua,p);
+      const d=D.delt(ig,p), j=(ft-fr)/(d*p.ma);
+      uas.push(ua); fts.push(ft); frs.push(fr); js.push(j);
+      invjs.push(j>0.01?1/j:999);
+    }
+    return{ig,gi,u0,u1,uas,fts,frs,invjs,js,Ftmax:Math.max(...fts),delta:D.delt(ig,p)};
+  });
+  // 最高车速：最高档 Ft=Fr 交点
+  let uamax=0;
+  const lg=gd[p.ng-1];
+  for(let k=0;k<lg.uas.length-1;k++){
+    const d1=lg.fts[k]-lg.frs[k], d2=lg.fts[k+1]-lg.frs[k+1];
+    if(d1>=0&&d2<=0){uamax=lg.uas[k]+d1/(d1-d2)*(lg.uas[k+1]-lg.uas[k]);break;}
+  }
+  if(!uamax)uamax=lg.u1;
+  // 最大爬坡度（各档）
+  const W=p.ma*g;
+  const gradePerGear=gd.map(gg=>{
+    const Ft=gg.Ftmax;
+    let sinA=Math.min(0.95,(Ft-p.f*W)/W);
+    if(sinA<0)sinA=0;
+    const aR=Math.asin(sinA);
+    return{sinA,aRad:aR,grade:Math.tan(aR)*100,Ft};
+  });
+  const Ft1=gd[0].Ftmax;
+  const sinA=gradePerGear[0].sinA, aRad=gradePerGear[0].aRad, grade=gradePerGear[0].grade;
+  // 最大坡度时附着率
+  const cosA=Math.cos(aRad);
+  const N2=W*(p.a_cg/p.L*cosA+p.hg/p.L*(sinA-p.f*cosA));
+  const phi_need=Ft1/N2;
+  // v-t：起步档 → 目标车速，600 步梯形积分，n≥0.97·n_max 换档
+  const agi=p.ag-1;
+  let cgi=agi, ua_c=gd[agi].u0+0.2;
+  const vt_u=[ua_c],vt_t=[0];
+  const dv=(p.at-ua_c)/600;
+  let t_tot=0;
+  for(let k=0;k<600;k++){
+    if(cgi<p.ng-1&&D.ua2n(ua_c,p.ig[cgi],p)>=p.n_max*0.97)cgi++;
+    let ua_n=ua_c+dv, du=dv;
+    // 最后一步直接取到目标车速（与修正后的实验1相同）
+    if(k===599||ua_n>p.at){ ua_n=p.at; du=ua_n-ua_c; }
+    if(!(du>0))break;
+    const j=D.acc((ua_c+ua_n)/2,p.ig[cgi],p);
+    if(j<=0.001)break;
+    t_tot+=du/3.6/j;
+    vt_u.push(ua_n); vt_t.push(t_tot);
+    ua_c=ua_n;
+  }
+  return{gd,uamax,grade,aRad,phi_need,N2,Ft1,vt_u,vt_t,gradePerGear};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 经济性（实验2 recalcAll / calcCycle 原样移植）
+// ═══════════════════════════════════════════════════════════════
+function n2ua(n,ig,p){ return 0.377*p.r*n/(ig*p.i0); }
+function Pe_resist(ua,p){ return (p.m*p.g*p.f*ua/3600 + p.CdA*ua*ua*ua/76140)/p.eta; }
+function Pe_accel(ua,ig,p,a_acc){
+  const s=1+(p.Iw1+p.Iw2)/(p.m*p.r*p.r)+(p.If*ig*ig*p.i0*p.i0*p.eta)/(p.m*p.r*p.r);
+  return (p.m*p.g*p.f*ua/3600 + p.CdA*ua*ua*ua/76140 + s*p.m*ua*a_acc/3600)/p.eta;
+}
+// bₑ(ua) 取法（与实验2相同）：'A' 剔除外推点后拟合 | 'B' 按转速直接插值 | 'orig' 原算法
+function beCurveFn(mode,ig,p,PeFn){
+  if(mode==='B'){ const f=ua=>beFromPoly(ua*ig*p.i0/(0.377*p.r), PeFn(ua)); f.B=null; f.used=null; return f; }
+  let pts=polyState.speeds.map(nn=>{const u=n2ua(nn,ig,p), P=PeFn(u); return {n:nn,ua:u,be:beFromPoly(nn,P),ok:P<=Ttq(nn)*nn*2*Math.PI/60/1000};}).filter(q=>q.ua>0);
+  if(mode==='A'){ const ok=pts.filter(q=>q.ok); if(ok.length>=2) pts=ok; }
+  let B=[300];
+  if(pts.length>=2){ try{ B=polyfit(pts.map(q=>q.ua),pts.map(q=>q.be),Math.min(4,pts.length-1)); }catch(e){ B=[300]; } }
+  const f=ua=>polyvalAsc(B,ua); f.B=B; f.used=pts.map(q=>q.n); return f;
+}
+function computeEco(p){
+  const gears=p.gears, gear_type=p.gear_type;
+  const N_test=polyState.speeds;
+  const N69=[]; for(let i=0;i<69;i++) N69.push((i+12)*50);
+  const gear_curves=[];
+  gears.forEach((ig,gi)=>{
+    const ua_ntest=N_test.map(nn=>n2ua(nn,ig,p));
+    const Pe_ntest=ua_ntest.map(ua=>Pe_resist(ua,p));
+    const be_ntest=N_test.map((nn,ni)=>beFromPoly(nn, Pe_ntest[ni]));
+    const Qs_ntest=ua_ntest.map((ua,ni)=>Pe_ntest[ni]*be_ntest[ni]/(1.02*ua*p.rhog));
+    const bf0=beCurveFn(p.beMode||'A',ig,p,ua=>Pe_resist(ua,p));
+    const B0=bf0.B;
+    const ua_69=N69.map(nn=>n2ua(nn,ig,p));
+    const Pe_69_0=ua_69.map(ua=>Pe_resist(ua,p));
+    const be_69_0=ua_69.map(ua=>bf0(ua));
+    const Qs_69=ua_69.map((ua,i)=>Pe_69_0[i]*be_69_0[i]/(1.02*ua*p.rhog));
+    const Ft_69=N69.map(nn=>Ttq(nn)*ig*p.i0*p.eta/p.r);
+    const Pd_69=ua_69.map((ua,i)=>Ft_69[i]*ua/3600);
+    gear_curves.push({ig,gi,ua_ntest,Qs_ntest,ua_69,Qs_69,Ft_69,Pd_69,Pe_69_0,be_69_0,B0,used:bf0.used});
+  });
+  const ig_top=gears[gear_type-1];
+  const ua_top69=N69.map(nn=>n2ua(nn,ig_top,p));
+  const Fr_top69=ua_top69.map(ua=>p.m*p.g*p.f+p.CdA*ua*ua/21.15);
+  const g_top=gear_curves[gear_type-1];
+  let u_max=0;
+  for(let i=N69.length-1;i>=0;i--){
+    if(g_top.Ft_69[i]>=Fr_top69[i]&&Fr_top69[i]>0){ u_max=g_top.ua_69[i]; break; }
+  }
+  return {gear_curves,u_max};
+}
+function calcCycleEco(gear_curves, p, segs, Qid){
+  const gamma=Number.isFinite(p.rhog)&&p.rhog>0?p.rhog:RHOG;
+  const gear_type=p.gear_type, gears=p.gears;
+  function resolveGear(gearStr){
+    if(gearStr==='top') return {ig:gears[gear_type-1], gi:gear_type-1};
+    if(gearStr==='sec') return {ig:gears[gear_type-2], gi:gear_type-2};
+    const gi=parseInt(gearStr);
+    if(!isNaN(gi) && gi>=0 && gi<gears.length) return {ig:gears[gi], gi};
+    return {ig:gears[gear_type-1], gi:gear_type-1};
+  }
+  function interp69(gc, ua, arr){
+    const xA=gc.ua_69, yA=arr;
+    if(ua<=xA[0]) return yA[0];
+    if(ua>=xA[xA.length-1]) return yA[yA.length-1];
+    for(let i=0;i<xA.length-1;i++){
+      if(xA[i]<=ua&&ua<=xA[i+1]){
+        const t=(ua-xA[i])/(xA[i+1]-xA[i]);
+        return yA[i]+t*(yA[i+1]-yA[i]);
+      }
+    }
+    return yA[yA.length-1];
+  }
+  const results=segs.map(seg=>{
+    const {type, v1, v2, param}=seg;
+    const {ig, gi}=resolveGear(seg.gear||'top');
+    const gc=gear_curves[gi]||gear_curves[gear_curves.length-1];
+    let Q=0, dist=0, time=0;
+    if(type==='const'){
+      const ua=v1, S=param;
+      const Pe=interp69(gc, ua, gc.Pe_69_0);
+      const be=interp69(gc, ua, gc.be_69_0);
+      Q=Pe*be*S/(102*ua*gamma);
+      dist=S; time=S/(ua/3.6);
+    } else if(type==='accel'){
+      const a=param, steps=Math.abs(Math.round(v2-v1))+1;
+      const vArr=Array.from({length:steps},(_,i)=>Math.min(v1,v2)+i);
+      const bfa=beCurveFn(p.beMode||'A',ig,p,u=>Pe_accel(u,ig,p,a));
+      const Qt=vArr.map(u=>{ const Pe=Pe_accel(u,ig,p,a); const be=bfa(u); return Pe*be/(367.1*gamma); });
+      const dt=1/(3.6*a);
+      for(let i=0;i<Qt.length-1;i++) Q+=(Qt[i]+Qt[i+1])/2*dt;
+      const v1ms=v1/3.6, v2ms=v2/3.6;
+      dist=Math.abs(v2ms*v2ms-v1ms*v1ms)/(2*a);
+      time=Math.abs(v2-v1)/(3.6*a);
+    } else if(type==='decel'){
+      const a=param;
+      Q=Qid*Math.abs(v1-v2)/(3.6*a);
+      const v1ms=v1/3.6,v2ms=v2/3.6;
+      dist=Math.abs(v1ms*v1ms-v2ms*v2ms)/(2*a);
+      time=Math.abs(v1-v2)/(3.6*a);
+    } else if(type==='idle'){
+      Q=Qid*param; dist=0; time=param;
+    }
+    return {Q, dist, time, type, gi};
+  });
+  const totalQ=results.reduce((a,r)=>a+r.Q,0);
+  const totalDist=results.reduce((a,r)=>a+r.dist,0);
+  const totalTime=results.reduce((a,r)=>a+r.time,0);
+  const Qs=totalDist>0?totalQ*100/totalDist:0;
+  return {segments:results,totalQ,totalDist,totalTime,Qs};
+}
+// 指定车速等速油耗：在 69 个计算点之间线性插值（与实验2「指定车速等速油耗读数」相同）
+function qsAt(gc,u){
+  if(!gc) return null;
+  const xs=gc.ua_69, ys=gc.Qs_69;
+  if(!(u>=xs[0]&&u<=xs[xs.length-1])) return null;
+  const i=xs.findIndex(x=>x>=u);
+  return i===0?ys[0]:ys[i-1]+(ys[i]-ys[i-1])*(u-xs[i-1])/(xs[i]-xs[i-1]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 对每个 i₀ 计算全部指标
+// ═══════════════════════════════════════════════════════════════
+function calcOneI0(i0,P){
+  const pd={...P.dyn,i0}, pe={...P.eco,i0};
+  const dyn=computeDyn(pd);
+  const eco=computeEco(pe);
+  const gt=P.gt;
+  const top=eco.gear_curves[gt-1], sec=eco.gear_curves[gt-2];
+  const nz=v=>v===null?NaN:v;
+  const cyTop=calcCycleEco(eco.gear_curves,pe,JB_PRESETS.top,P.Qid);
+  const cySec=calcCycleEco(eco.gear_curves,pe,JB_PRESETS.sec,P.Qid);
+  const t=dyn.vt_t[dyn.vt_t.length-1];
+  const reached=dyn.vt_u[dyn.vt_u.length-1]>=P.at-Math.abs(P.at-dyn.vt_u[0])/600*1.01;
+  const vtArr=dyn.vt_u.map((u,k)=>({t:dyn.vt_t[k],ua:u}));
+  const accelCurve=dyn.gd.map(g=>g.uas.map((ua,k)=>({ua,j:g.js[k]})).filter(q=>q.j>0.01));
+  // 等速油耗曲线：与实验2③页相同，只画负荷特性试验转速范围内的 69 点
+  const nLo=Math.min(...polyState.speeds), nHi=Math.max(...polyState.speeds);
+  const fuelCurve=gc=>{ if(!gc) return {uas:[],qss:[]};
+    const pts=gc.ua_69.map((ua,i)=>({x:ua,y:gc.Qs_69[i],n:(i+12)*50}))
+      .filter(q=>q.n>=nLo&&q.n<=nHi&&q.x>0&&q.y>0&&q.y<50);
+    return {uas:pts.map(q=>q.x),qss:pts.map(q=>q.y)}; };
+  // 功率平衡：与实验2②页相同（69 个转速点）
+  const umaxPlot=Math.min(1000,Math.max(dyn.uamax,top.ua_69[top.ua_69.length-1])*1.02);
+  const pr_uas=[],prs=[],frs=[];
+  for(let ua=0;ua<=umaxPlot;ua+=1){ const fr=pe.m*pe.g*pe.f+pe.CdA*ua*ua/21.15; pr_uas.push(ua); frs.push(fr); prs.push(fr*ua/3600); }
+  const powerCurve={curves:eco.gear_curves.map(g=>({ig:g.ig,gi:g.gi,uas:g.ua_69,pds:g.Pd_69,fts:g.Ft_69})),pr_uas,prs,frs};
+  return {
+    i0, umax:dyn.uamax, t, reached, vtArr,
+    maxGrade:dyn.grade, phi:dyn.phi_need, Ft1:dyn.Ft1, delta1:dyn.gd[0].delta,
+    q40:nz(qsAt(top,40)), q60:nz(qsAt(top,60)), q80:nz(qsAt(top,80)),
+    q40s:nz(qsAt(sec,40)), q60s:nz(qsAt(sec,60)), q80s:nz(qsAt(sec,80)),
+    qjb:cyTop.Qs, qjb_sec:cySec.Qs, cyTop, cySec,
+    fuelCurve_top:fuelCurve(top), fuelCurve_sec:fuelCurve(sec),
+    accelCurve, powerCurve,
+    n_at60:D.ua2n(60,pd.ig[gt-1],pd),
+    dyn, eco,
+  };
+}
+function calcAll_i0(){
+  syncEngFromDOM(); readPolyFromDOM();
+  const P=getP();
+  RESULTS=i0List.map((i0,idx)=>({...calcOneI0(i0,P),idx,color:I0_COLORS[idx%I0_COLORS.length],p:P}));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 参数读取（输入项与实验1、实验2一致）
+// ═══════════════════════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+const gv=id=>{const e=$(id);const v=e?parseFloat(e.value):NaN;return Number.isFinite(v)?v:NaN;};
+function getGears(gt){
+  gt=gt||parseInt($('gear_type').value);
+  return GEAR_DEFAULTS[gt].map((d,i)=>{const e=$(`g${gt}_${i}`);const v=e?parseFloat(e.value):NaN;return v>0?v:NaN;});
+}
+function buildP(b,gt,gears,beMode,eng){
+  return {...b, gt, gears, g_dyn:G_DYN, g_eco:G_ECO, rhog:b.rhog,
+    eng:{div:eng.div, coefs:[...eng.coefs]},
+    dyn:{mode:'poly',poly_a:[...eng.coefs],poly_div:eng.div,n_min:b.nmin,n_max:b.nmax,
+      ma:b.m,r:b.r,eta_t:b.eta,i0:0,f:b.f,CDA:b.CdA,If:b.If,Iw1:b.Iw1,Iw2:b.Iw2,
+      L:b.L,a_cg:b.a_cg,hg:b.hg,ig:gears,ng:gt,ag:b.ag,at:b.at},
+    eco:{m:b.m,r:b.r,f:b.f,CdA:b.CdA,eta:b.eta,i0:0,nmin:b.nmin,nmax:b.nmax,g:G_ECO,
+      If:b.If,Iw1:b.Iw1,Iw2:b.Iw2,rhog:b.rhog,gears,gear_type:gt,beMode}};
+}
+function getP(){
+  const gt=parseInt($('gear_type').value), gears=getGears(gt);
+  const b={m:gv('p_m'), r:gv('p_r'), f:gv('p_f'), CdA:gv('p_CdA'), eta:gv('p_eta'),
+    If:gv('p_If'), Iw1:gv('p_Iw1'), Iw2:gv('p_Iw2'), nmin:gv('p_nmin'), nmax:gv('p_nmax'),
+    L:gv('L_wb'), a_cg:gv('a_cg'), hg:gv('hg'), Qid:gv('p_Qid'), rhog:gv('p_gamma'),
+    ag:Math.min(gt,Math.max(1,parseInt($('start_gear').value)||2)), at:gv('accel_target')};
+  return buildP(b,gt,gears,($('be_mode')||{}).value||'A',engState);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 评分用标准参数（教材给定值）。自动评分只用这一组参数重算，
+// 与学生在页面上填写的数值无关，学生改动参数不会影响评分标准。
+// ═══════════════════════════════════════════════════════════════
+const REF_PARAMS={m:3880,r:0.367,f:0.013,CdA:2.77,eta:0.85,If:0.218,Iw1:1.798,Iw2:3.598,
+  nmin:600,nmax:4000,L:3.2,a_cg:1.947,hg:0.9,Qid:0.299,rhog:RHOG,ag:2,at:70};
+function refEngState(){ return {div:1000, coefs:[...ENG_DEFAULT_COEFS]}; }
+function refPolyState(){ return {deg:4, speeds:[...BOOK_SPEEDS], coeffs:BOOK_SPEEDS.map(n=>[...BOOK_COEFFS[n]])}; }
+function refP(gt){
+  return buildP({...REF_PARAMS, ag:Math.min(gt,REF_PARAMS.ag)}, gt, [...GEAR_DEFAULTS[gt]], 'A', refEngState());
+}
+// 临时换上标准发动机与负荷特性数据计算，算完恢复学生数据
+function withRefState(fn){
+  const se=engState, sp=polyState;
+  engState=refEngState(); polyState=refPolyState();
+  try{ return fn(); } finally { engState=se; polyState=sp; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 输入检查：参数没有填全或明显不合理时不计算，在结果区提示
+// ═══════════════════════════════════════════════════════════════
+function checkInputs(){
+  const gt=parseInt($('gear_type').value);
+  const missing={}, errs=[];
+  const groupName=el=>{const g=el.closest('.group');const h=g&&g.querySelector('.group-hdr');
+    return h?[...h.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join('')||'参数':'参数';};
+  document.querySelectorAll('.left input[type=number]').forEach(el=>{
+    if(el.readOnly) return;
+    if(/^g[45]_/.test(el.id) && !el.id.startsWith('g'+gt+'_')) return;   // 未选用的变速器列不必填
+    const v=parseFloat(el.value);
+    if(el.value.trim()===''||!Number.isFinite(v)){ const k=groupName(el); missing[k]=(missing[k]||0)+1; }
+  });
+  const num=id=>parseFloat(($(id)||{}).value);
+  const pos=(id,label)=>{const v=num(id); if(Number.isFinite(v)&&!(v>0)) errs.push(label+'必须大于0');};
+  pos('p_m','总质量 m'); pos('p_r','车轮半径 r'); pos('p_CdA','CD·A'); pos('p_eta','传动效率 ηt');
+  pos('p_nmin','n_min'); pos('p_nmax','n_max'); pos('eng_div','发动机除数'); pos('accel_target','目标车速');
+  pos('p_gamma','燃油重度 γ'); pos('L_wb','轴距 L');
+  if(num('p_eta')>1) errs.push('传动效率 ηt 不能大于1');
+  if(num('p_f')<0) errs.push('滚阻系数 f 不能为负');
+  if(num('p_Qid')<0) errs.push('怠速油耗 Qid 不能为负');
+  if(Number.isFinite(num('p_nmin'))&&Number.isFinite(num('p_nmax'))&&num('p_nmax')<=num('p_nmin')) errs.push('n_max 必须大于 n_min');
+  GEAR_DEFAULTS[gt].forEach((_,i)=>{const v=num(`g${gt}_${i}`); if(Number.isFinite(v)&&!(v>0)) errs.push(`${GEAR_NAMES[i]}档传动比必须大于0`);});
+  i0List.forEach((v,i)=>{ if(Number.isFinite(v)&&!(v>=2&&v<=12)) errs.push(`第${i+1}个 i₀ 应在 2～12 之间`); });
+  const sp=polyState.speeds.map((_,i)=>num('pn_'+i)).filter(Number.isFinite);
+  if(new Set(sp).size!==sp.length) errs.push('负荷特性转速点不能重复');
+  if(sp.some(n=>!(n>0))) errs.push('负荷特性转速必须大于0');
+  if(polyState.speeds.length<2) errs.push('负荷特性至少需要2个转速点');
+  return {missing, errs, ok:!Object.keys(missing).length&&!errs.length};
+}
+function showInputHint(chk){
+  const box=$('input_hint');
+  if(chk.ok){ box.hidden=true; box.innerHTML=''; return; }
+  const total=Object.values(chk.missing).reduce((a,b)=>a+b,0);
+  const items=[...Object.entries(chk.missing).map(([k,n])=>`${k}：还有 ${n} 项未填`),...chk.errs];
+  box.innerHTML=`<b>请先在左侧填写全部参数，再查看计算结果。</b>${total?`目前共有 ${total} 项未填（黄色边框的输入框）。`:''}参数请按实验指导书和教材自行查找填写；填完后自动计算，也可点击「全部计算」。
+    <ul>${items.map(t=>`<li>${t}</li>`).join('')}</ul>`;
+  box.hidden=false;
+}
+function clearResults(){
+  RESULTS=[];
+  ['summary_cards','i0_selector','tradeoff_best'].forEach(id=>{const e=$(id); if(e) e.innerHTML='';});
+  Object.keys(charts).forEach(k=>{ try{charts[k].destroy();}catch(e){} delete charts[k]; });
+  document.querySelectorAll('.plotly-host').forEach(el=>{ try{Plotly.purge(el);}catch(e){} });
+  document.querySelectorAll('[id^="n60_"]').forEach(el=>el.textContent='—');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 发动机外特性多项式（阶数 / 除数可调，与实验1、2相同）
+// ═══════════════════════════════════════════════════════════════
+const SUBSC='₀₁₂₃₄₅₆₇₈₉', SUPER='⁰¹²³⁴⁵⁶⁷⁸⁹';
+const toSub=k=>String(k).split('').map(c=>SUBSC[+c]).join('');
+const toSup=k=>String(k).split('').map(c=>SUPER[+c]).join('');
+const ENG_ORD=['常数项 (N·m)','一次项','二次项','三次项','四次项','五次项','六次项','七次项','八次项','九次项','十次项'];
+function engReadCoefsFromDOM(){
+  const a=[];
+  for(let k=0;;k++){ const e=$('ec_'+k); if(!e)break; const v=parseFloat(e.value); a.push(Number.isFinite(v)?v:null); }
+  return a;
+}
+function syncEngFromDOM(){
+  const d=$('eng_div'); if(d){ const v=parseFloat(d.value); engState.div=v>0?v:NaN; }
+  const a=engReadCoefsFromDOM(); if(a.length) engState.coefs=a;
+}
+function buildEngTable(){
+  $('eng_coef_grid').innerHTML=engState.coefs.map((v,k)=>`
+    <div class="ec"><label>a${toSub(k)} · ${ENG_ORD[k]||k+'次项'}</label>
+      <input type="number" id="ec_${k}" value="${blankIfNaN(v)}" placeholder="待填" step="any" onchange="syncEngFromDOM();updEngFormula()"></div>`).join('');
+  $('eng_deg').value=engState.coefs.length-1;
+  const dv=$('eng_div'); dv.value=blankIfNaN(engState.div); dv.dataset.old=blankIfNaN(engState.div);
+  updEngFormula();
+}
+function updEngFormula(){
+  const d=engState.coefs.length-1;
+  let f='Ttq = a₀';
+  for(let k=1;k<=d;k++) f+=` + a${toSub(k)}·x${k>1?toSup(k):''}`;
+  $('eng_formula').innerHTML=`<b>${f}</b>　（x = n/${Number.isFinite(engState.div)?engState.div:'？'}，${d} 阶）　单位：Ttq [N·m]`;
+}
+function onEngDegChange(){
+  let d=parseInt($('eng_deg').value); if(!(d>=1))d=1; if(d>10)d=10;
+  const old=engReadCoefsFromDOM();
+  engState.coefs=Array.from({length:d+1},(_,k)=>old[k]!==undefined?old[k]:null);
+  buildEngTable();
+}
+function onEngDivChange(){
+  const el=$('eng_div');
+  const nv=parseFloat(el.value), ov=parseFloat(el.dataset.old);
+  if(el.value.trim()===''){ el.dataset.old=''; syncEngFromDOM(); updEngFormula(); return; }
+  if(!(nv>0)){ alert('除数必须为正数'); el.value=blankIfNaN(ov); return; }
+  if($('eng_conv').checked && ov>0 && nv!==ov){
+    engReadCoefsFromDOM().forEach((v,k)=>{ const e=$('ec_'+k); if(e&&v!==null) e.value=Number((v*Math.pow(nv/ov,k)).toPrecision(10)); });
+  }
+  el.dataset.old=nv; syncEngFromDOM(); updEngFormula();
+}
+function resetEngineDefault(){
+  engState={div:1000, coefs:[...ENG_DEFAULT_COEFS]};
+  $('eng_conv').checked=false; buildEngTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 负荷特性 be-Pe 多项式系数表（与实验2相同：默认教材 492QC-2 系数）
+// ═══════════════════════════════════════════════════════════════
+function buildPolyTable(){
+  const deg=polyState.deg;
+  $('poly_deg').value=String(deg);
+  const heads=Array.from({length:deg+1},(_,i)=>`<th class="colC">a${toSub(i)}</th>`).join('');
+  $('poly_thead').innerHTML=`<tr><th class="colN">n<br><span style="font-weight:400">(r/min)</span></th>${heads}<th style="width:22px"></th></tr>`;
+  $('poly_tbody').innerHTML=polyState.speeds.map((n,idx)=>`<tr>
+    <td><input class="n-input" type="number" id="pn_${idx}" value="${blankIfNaN(n)}" placeholder="待填" step="1" onchange="onPolySpeedChange()"></td>
+    ${Array.from({length:deg+1},(_,j)=>`<td><input type="number" id="pc_${idx}_${j}" value="${blankIfNaN((polyState.coeffs[idx]||[])[j])}" placeholder="待填" step="any"></td>`).join('')}
+    <td class="del-cell"><button class="del-row-btn" onclick="deletePolyRow(${idx})" title="删除该转速点">✕</button></td></tr>`).join('');
+  $('poly_count').textContent=`${polyState.speeds.length} 个转速点`;
+}
+function readPolyFromDOM(){
+  const rows=polyState.speeds.map((n0,idx)=>{
+    const nEl=$(`pn_${idx}`);
+    const nv=nEl?parseFloat(nEl.value):n0;
+    const n=Number.isFinite(nv)?nv:null;
+    const cs=Array.from({length:polyState.deg+1},(_,j)=>{const el=$(`pc_${idx}_${j}`);const v=el?parseFloat(el.value):(polyState.coeffs[idx]||[])[j];return Number.isFinite(v)?v:null;});
+    return {n,cs};
+  }).map((r,k)=>({...r,k})).sort((a,b)=>{const x=a.n??Infinity,y=b.n??Infinity;return x===y?a.k-b.k:x-y;});
+  polyState.speeds=rows.map(r=>r.n); polyState.coeffs=rows.map(r=>r.cs);
+}
+function onPolySpeedChange(){ readPolyFromDOM(); buildPolyTable(); }
+function onPolyDegChange(){
+  readPolyFromDOM();
+  const d=parseInt($('poly_deg').value)||4;
+  polyState.coeffs=polyState.coeffs.map(cs=>Array.from({length:d+1},(_,j)=>cs[j]??null));
+  polyState.deg=d; buildPolyTable();
+}
+function addPolyRow(){
+  readPolyFromDOM();
+  polyState.speeds.push(null);
+  polyState.coeffs.push(Array(polyState.deg+1).fill(null));
+  buildPolyTable();
+}
+function deletePolyRow(idx){
+  readPolyFromDOM();
+  if(polyState.speeds.length<=2){ alert('至少保留 2 个转速点'); return; }
+  polyState.speeds.splice(idx,1); polyState.coeffs.splice(idx,1); buildPolyTable();
+}
+function restoreBookPoly(){
+  polyState={deg:4, speeds:[...BOOK_SPEEDS], coeffs:BOOK_SPEEDS.map(n=>[...BOOK_COEFFS[n]])};
+  buildPolyTable();
+}
+// 旧版接口（评阅平台调用）：恢复教材系数
+function fitBePolys(){ restoreBookPoly(); }
+
+// ═══════════════════════════════════════════════════════════════
+// 变速器 / 加速设置
+// ═══════════════════════════════════════════════════════════════
+function onGearChange(run=true){
+  const gt=parseInt($('gear_type').value);
+  const sel=$('start_gear'), old=parseInt(sel.value)||2;
+  sel.innerHTML=Array.from({length:gt},(_,i)=>`<option value="${i+1}">${i+1}档</option>`).join('');
+  sel.value=String(Math.min(old,gt));
+  document.querySelectorAll('.gear-col4').forEach(e=>e.style.opacity=gt===4?'1':'.45');
+  document.querySelectorAll('.gear-col5').forEach(e=>e.style.opacity=gt===5?'1':'.45');
+  if(run) runAll();
+}
+function setAccelTarget(v,btn){
+  $('accel_target').value=v;
+  runAll();
+}
+
+
+// ─────────────────────────────────────────────────────
+// 图表渲染
+// ─────────────────────────────────────────────────────
+const charts={};
+function mkChart(id,cfg){
+  if(charts[id]) charts[id].destroy();
+  cfg.options={...cfg.options,maintainAspectRatio:false,animation:false,
+    interaction:{mode:'nearest',intersect:false}};
+  // Canvas size belongs to its frame, never to a hidden page or its intrinsic aspect ratio.
+  Object.values(cfg.options.scales||{}).forEach(scale=>{
+    scale.ticks={...scale.ticks,maxTicksLimit:$(id).parentElement.clientWidth<500?6:9,
+      maxRotation:0,font:{size:11},padding:6};
+    if(scale.title) scale.title.font={size:12};
+  });
+  charts[id]=new Chart($(id),cfg);
+}
+Chart.defaults.color='#a8c0d8';
+Chart.defaults.borderColor='#1e3550';
+Chart.defaults.font.family="'JetBrains Mono',monospace";
+Chart.defaults.font.size=12;
+
+const CSCALE=(xtitle,ytitle,xmin,xmax,ymin,ymax)=>({
+  x:{type:'linear',title:{display:true,text:xtitle,color:'#5a7a9a',font:{size:12}},
+    min:xmin,max:xmax,grid:{color:'#1a3050'},ticks:{color:'#5a7a9a'}},
+  y:{title:{display:true,text:ytitle,color:'#5a7a9a',font:{size:12}},
+    min:ymin,max:ymax,grid:{color:'#1a3050'},ticks:{color:'#5a7a9a'}}
+});
+const LEG={display:true,position:'bottom',labels:{boxWidth:18,boxHeight:3,
+  padding:12,font:{size:11},color:'#a8c0d8'}};
+
+function paddedRange(values,padding=0.18){
+  const finite=values.filter(Number.isFinite);
+  if(!finite.length) return [0,1];
+  const lo=Math.min(...finite),hi=Math.max(...finite);
+  const span=Math.max(hi-lo,Math.abs((lo+hi)/2)*0.03,0.1);
+  return [lo-span*padding,hi+span*padding];
+}
+
+// Place labels in pixel space so nearby calculation points remain distinguishable.
+function tradeoffLabels(xs,ys,xrange,yrange,margin,compact){
+  const host=$('chart_tradeoff');
+  const width=host.clientWidth-margin.l-margin.r;
+  const height=host.clientHeight-margin.t-margin.b;
+  const points=xs.map((x,i)=>({
+    x:(x-xrange[0])/(xrange[1]-xrange[0])*width,
+    y:(1-(ys[i]-yrange[0])/(yrange[1]-yrange[0]))*height
+  }));
+  const boxes=[];
+  return points.map((point,i)=>{
+    const w=compact?52:68,h=compact?14:18;
+    const offsets=[[0,20],[0,-20],[32,24],[-32,24],[32,-24],[-32,-24],[0,40],[0,-40]];
+    const candidates=offsets.map(([dx,dy],order)=>{
+      const box={l:point.x+dx-w/2,r:point.x+dx+w/2,t:point.y-dy-h/2,b:point.y-dy+h/2};
+      let penalty=order;
+      if(box.l<0||box.r>width||box.t<0||box.b>height) penalty+=10000;
+      boxes.forEach(b=>{if(box.l<b.r+4&&box.r>b.l-4&&box.t<b.b+4&&box.b>b.t-4) penalty+=1000;});
+      points.forEach(p=>{if(p.x>box.l-8&&p.x<box.r+8&&p.y>box.t-8&&p.y<box.b+8) penalty+=500;});
+      return{box,dx,dy,penalty};
+    });
+    const best=candidates.sort((a,b)=>a.penalty-b.penalty)[0];
+    boxes.push(best.box);
+    return{x:xs[i],y:ys[i],text:`i₀=${RESULTS[i].i0}`,showarrow:false,
+      xshift:best.dx,yshift:best.dy,xanchor:'center',yanchor:'middle',
+      font:{size:compact?10:12,color:RESULTS[i].color,family:'JetBrains Mono'}};
+  });
+}
+
+// ── 主图：经济性-动力性权衡 (Plotly) ──
+function renderTradeoff(){
+  if(!$('pg0').classList.contains('active')||!RESULTS.length) return;
+  const compact=$('chart_tradeoff').clientWidth<500;
+  const rawLabels={q60:'等速60km/h油耗',q80:'等速80km/h油耗',qjb:'JB六工况油耗'};
+  const unitLabel= fuelUnit==='l100' ? 'L/100km' : 'km/L';
+  const yAxisLabel= rawLabels[yMode] + ' Qs (' + unitLabel + ')';
+
+  // Convert fuel values according to selected unit
+  function toUnit(qs){ return fuelUnit==='l100' ? qs : (qs>0 ? 100/qs : 0); }
+
+  const rawYs=RESULTS.map(r=>yMode==='q60'?r.q60:yMode==='q80'?r.q80:r.qjb);
+  const ys=rawYs.map(toUnit);
+  const xs=RESULTS.map(r=>r.t);
+  const target=gv('accel_target');
+  const xrange=paddedRange(xs,0.25),yrange=paddedRange(ys,0.3);
+  const margin={l:compact?52:70,r:compact?18:30,t:30,b:compact?54:64};
+
+  // Main scatter + line
+  const traceMain={
+    type:'scatter', mode:'lines+markers',
+    x:xs, y:ys,
+    line:{color:'rgba(100,150,200,0.3)',width:1.5,dash:'dot'},
+    marker:{color:RESULTS.map(r=>r.color),size:compact?11:14,
+      line:{color:'rgba(255,255,255,0.5)',width:1.5},
+      symbol:'circle'},
+    name:'权衡曲线',
+    hovertemplate:RESULTS.map(r=>{
+      const rawQ=yMode==='q60'?r.q60:yMode==='q80'?r.q80:r.qjb;
+      const dispQ=toUnit(rawQ);
+      return `<b>i₀ = ${r.i0}</b><br>加速时间: %{x:.1f} s<br>油耗: %{y:.2f} ${unitLabel}<br>`+
+        `最高车速: ${r.umax.toFixed(1)} km/h<br>最大爬坡: ${r.maxGrade.toFixed(1)}%<extra></extra>`;
+    }),
+    hoverlabel:{bgcolor:RESULTS.map(r=>r.color),font:{size:13,color:'#000'}},
+  };
+
+  // Best "balanced" point — for L/100km: min(Qs*t); for km/L: max(kmpl/t) = min(t/kmpl)
+  const scores=RESULTS.map((r,i)=> fuelUnit==='l100' ? rawYs[i]*r.t : r.t/Math.max(0.01,ys[i]));
+  let bestIdx=-1; scores.forEach((v,i)=>{ if(Number.isFinite(v)&&(bestIdx<0||v<scores[bestIdx])) bestIdx=i; });
+  if(bestIdx<0) bestIdx=0;
+  const traceBest={
+    type:'scatter', mode:'markers',
+    x:[xs[bestIdx]], y:[ys[bestIdx]],
+    marker:{color:'rgba(255,255,255,0)',size:compact?21:26,
+      line:{color:'#f0c040',width:2.5},symbol:'circle'},
+    name:'综合最优',
+    hovertemplate:`<b>综合最优 i₀ = ${RESULTS[bestIdx].i0}</b><extra>推荐</extra>`,
+  };
+
+  $('tradeoff_best').innerHTML=`<strong>综合最优 i₀=${RESULTS[bestIdx].i0}</strong>`+
+    ` · 按当前工况 Qs·t 最小评价 · 金色圆环标出推荐点`;
+
+  const layout={
+    paper_bgcolor:'#0d1a28', plot_bgcolor:'#0a1220',
+    autosize:true,
+    margin,
+    xaxis:{
+      title:{text:`${RESULTS[0].p.ag}档起步→${target} km/h 加速时间 t (s)`,standoff:12,font:{size:compact?11:13,color:'#a8c0d8'}},
+      range:xrange,automargin:true,nticks:compact?5:8,tickformat:'.1f',
+      tickfont:{size:compact?10:12,color:'#a8c0d8'},gridcolor:'#1a3050',linecolor:'#1e3550',
+      showgrid:true,zeroline:false,
+    },
+    yaxis:{
+      title:{text:yAxisLabel,standoff:10,font:{size:compact?11:13,color:'#a8c0d8'}},
+      range:yrange,automargin:true,nticks:compact?5:7,tickformat:'.2f',
+      tickfont:{size:compact?10:12,color:'#a8c0d8'},gridcolor:'#1a3050',linecolor:'#1e3550',
+      showgrid:true,zeroline:false,
+    },
+    showlegend:false,
+    font:{color:'#a8c0d8'},
+    annotations:tradeoffLabels(xs,ys,xrange,yrange,margin,compact),
+  };
+
+  Plotly.react('chart_tradeoff',[traceMain,traceBest],layout,
+    {responsive:true,displayModeBar:!compact,displaylogo:false,scrollZoom:false,
+     modeBarButtonsToRemove:['select2d','lasso2d']});
+}
+
+// ── 综合对比表 ──
+function renderCompare(){
+  const p=RESULTS[0].p, gn=GEAR_NAMES[p.gt-1], gs=GEAR_NAMES[p.gt-2];
+  const f=(d)=>v=>Number.isFinite(v)?v.toFixed(d):'超出范围';
+  const metrics=[
+    {k:'umax',label:'最高车速 (km/h)',fmt:f(2),better:'hi'},
+    {k:'maxGrade',label:'最大爬坡度 (%)',fmt:f(2),better:'hi'},
+    {k:'phi',label:'最大坡度时附着率 φ',fmt:f(3)},
+    {k:'t',label:`${p.ag}档起步→${p.at}km/h 加速时间 (s)`,fmt:f(2),better:'lo',flag:r=>r.reached?'':' *'},
+    {k:'q40',label:`40km/h等速油耗 ${gn}档 (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'q60',label:`60km/h等速油耗 ${gn}档 (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'q80',label:`80km/h等速油耗 ${gn}档 (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'q60s',label:`60km/h等速油耗 ${gs}档 (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'qjb',label:`JB六工况 顶档${gn} (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'qjb_sec',label:`JB六工况 次高档${gs} (L/100km)`,fmt:f(3),better:'lo'},
+    {k:'n_at60',label:`60km/h ${gn}档转速 (r/min)`,fmt:f(0)},
+  ];
+  $('cmp_head').innerHTML=`<th style="background:#081628;border:1px solid var(--rule);padding:9px 12px">指标</th>`+
+    RESULTS.map(r=>`<th style="background:#081628;border:1px solid var(--rule);padding:9px 12px;
+      color:${r.color}">i₀ = ${r.i0}</th>`).join('');
+  const body=$('cmp_body');
+  body.innerHTML='';
+  metrics.forEach(m=>{
+    const vals=RESULTS.map(r=>r[m.k]).filter(Number.isFinite);
+    let best=null,worst=null;
+    if(m.better&&vals.length>1){
+      best=m.better==='hi'?Math.max(...vals):Math.min(...vals);
+      worst=m.better==='hi'?Math.min(...vals):Math.max(...vals);
+    }
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="border:1px solid var(--rule2);padding:8px 12px;color:var(--ink2);
+      font-family:var(--sans);font-weight:600;text-align:left">${m.label}</td>`+
+      RESULTS.map(r=>{
+        const v=r[m.k];
+        const c=v===best?'best':v===worst?'worst':'';
+        return `<td class="${c}" style="border:1px solid var(--rule2);padding:8px 12px">${m.fmt(v)}${m.flag?m.flag(r):''}</td>`;
+      }).join('');
+    body.appendChild(tr);
+  });
+  const miss=RESULTS.filter(r=>!r.reached).map(r=>r.i0);
+  $('cmp_note').textContent='绿色为该项最优值，红色为最差值。动力性指标与实验1算法一致（g=9.81），油耗指标与实验2算法一致（g=9.8，ρg=7.15 N/L）。'+
+    (miss.length?` * i₀=${miss.join('、')} 未达到目标车速，时间为可达车速处的值。`:'');
+}
+
+// ── 雷达图 (Plotly) ──
+function renderRadar(){
+  if(!$('pg1').classList.contains('active')||!RESULTS.length) return;
+  const compact=$('chart_radar').clientWidth<500;
+  const dims=['最高车速','爬坡能力','加速性能','60 km/h<br>经济性','80 km/h<br>经济性'];
+  const traces=RESULTS.map(r=>{
+    // Normalize 0-1: umax, maxGrade higher=better; t lower=better; q60,q80 lower=better
+    const umaxArr=RESULTS.map(x=>x.umax);
+    const gradeArr=RESULTS.map(x=>x.maxGrade);
+    const tArr=RESULTS.map(x=>x.t);
+    const q60Arr=RESULTS.map(x=>x.q60);
+    const q80Arr=RESULTS.map(x=>x.q80);
+    const norm=(v,arr,higher)=>{
+      arr=arr.filter(Number.isFinite); if(!Number.isFinite(v)||!arr.length) return 0;
+      const mn=Math.min(...arr),mx=Math.max(...arr);
+      if(mx===mn) return 0.5;
+      return higher?(v-mn)/(mx-mn):(mx-v)/(mx-mn);
+    };
+    const vals=[
+      norm(r.umax,umaxArr,true),
+      norm(r.maxGrade,gradeArr,true),
+      norm(r.t,tArr,false),
+      norm(r.q60,q60Arr,false),
+      norm(r.q80,q80Arr,false),
+    ];
+    vals.push(vals[0]);
+    return{type:'scatterpolar',r:vals,theta:[...dims,dims[0]],
+      fill:'toself',name:`i₀=${r.i0}`,
+      line:{color:r.color,width:2},
+      fillcolor:`rgba(${r.color.slice(1).match(/../g).map(x=>parseInt(x,16)).join(',')},0.12)`,
+      hovertemplate:`i₀=${r.i0}<br>%{theta}: %{r:.2f}<extra></extra>`};
+  });
+  Plotly.react('chart_radar',traces,{
+    autosize:true,
+    polar:{radialaxis:{visible:true,range:[0,1],tickfont:{size:10,color:'#5a7a9a'},
+        gridcolor:'#1e3550',linecolor:'#1e3550'},
+      angularaxis:{rotation:90,tickfont:{size:compact?10:12,color:'#a8c0d8'},gridcolor:'#1e3550',linecolor:'#1e3550'},
+      bgcolor:'#0a1220'},
+    paper_bgcolor:'#13202e',showlegend:true,
+    legend:{orientation:'h',x:0.5,xanchor:'center',y:-0.18,yanchor:'top',
+      font:{size:11,color:'#a8c0d8'},bgcolor:'rgba(0,0,0,0)'},
+    margin:{l:compact?58:80,r:compact?58:80,t:36,b:100},font:{color:'#a8c0d8'},
+  },{responsive:true,displayModeBar:false,displaylogo:false});
+}
+
+// ── 等速油耗曲线 ──
+function renderFuelCurves(){
+  ['chart_fuel','chart_fuel2'].forEach((id,gi_off)=>{
+    const gi=gi_off===0?RESULTS[0]?.p.gt-1:RESULTS[0]?.p.gt-2;
+    if(gi===undefined||gi<0) return;
+    const ds=RESULTS.map(r=>{
+      const curve=gi_off===0?r.fuelCurve_top:r.fuelCurve_sec;
+      return{label:`i₀=${r.i0}`,
+        data:curve.uas.map((ua,i)=>({x:ua,y:curve.qss[i]})),
+        borderColor:r.color,backgroundColor:'transparent',
+        borderWidth:2,pointRadius:0,showLine:true,tension:0.2};
+    });
+    const gname=GEAR_NAMES[gi];
+    mkChart(id,{type:'scatter',data:{datasets:ds},
+      options:{responsive:true,animation:{duration:200},plugins:{legend:LEG},
+        scales:CSCALE(`车速 ua (km/h)`,`Qs (L/100km)  [${gname}档]`,0,undefined,0,undefined)}});
+  });
+}
+
+// ── v-t 加速曲线 ──
+function renderVtCurves(){
+  const ds=RESULTS.map(r=>({
+    label:`i₀=${r.i0}`,
+    data:r.vtArr.map(pt=>({x:pt.t,y:pt.ua})),
+    borderColor:r.color,backgroundColor:'transparent',
+    borderWidth:2,pointRadius:0,showLine:true,tension:0.3,
+  }));
+  mkChart('chart_vt',{type:'scatter',data:{datasets:ds},
+    options:{responsive:true,animation:{duration:200},plugins:{legend:LEG},
+      scales:CSCALE('时间 t (s)','车速 ua (km/h)',0,null,0,null)}});
+
+  // Acceleration curves (1/j or j)
+  const ds2=RESULTS.map(r=>({
+    label:`i₀=${r.i0}`,
+    // A gap separates gears: joining them makes a misleading backwards diagonal.
+    data:r.accelCurve.flatMap(gear=>[
+      ...gear.filter(pt=>pt.j>0).map(pt=>({x:pt.ua,y:pt.j})),{x:null,y:null}
+    ]),spanGaps:false,
+    borderColor:r.color,backgroundColor:'transparent',
+    borderWidth:1.5,pointRadius:0,showLine:true,tension:0,
+  }));
+  mkChart('chart_accel',{type:'scatter',data:{datasets:ds2},
+    options:{responsive:true,animation:{duration:200},plugins:{legend:LEG},
+      scales:CSCALE('车速 ua (km/h)','加速度 j (m/s²)',0,null,0,null)}});
+}
+
+// ── 功率平衡图（选定i₀）──
+function renderPower(){
+  const r=RESULTS[selectedI0idx];
+  if(!r) return;
+  $('power_tag').textContent=`i₀=${r.i0}`;
+
+  const ds=r.powerCurve.curves.map((gc,gi)=>({
+    label:`${GEAR_NAMES[gi]}档 ig=${gc.ig}`,
+    data:gc.uas.map((ua,i)=>({x:ua,y:gc.pds[i]})).filter(pt=>pt.y>0),
+    borderColor:I0_COLORS[gi%I0_COLORS.length],backgroundColor:'transparent',
+    borderWidth:2,pointRadius:0,showLine:true,tension:0.3,
+  }));
+  ds.push({label:'行驶阻力 Pr',
+    data:r.powerCurve.pr_uas.map((ua,i)=>({x:ua,y:r.powerCurve.prs[i]})).filter(pt=>pt.y>0),
+    borderColor:'#e4edf8',borderWidth:2,borderDash:[6,3],
+    pointRadius:0,backgroundColor:'transparent',showLine:true});
+
+  mkChart('chart_power',{type:'scatter',data:{datasets:ds},
+    options:{responsive:true,animation:{duration:200},plugins:{legend:LEG},
+      scales:CSCALE('车速 ua (km/h)','功率 P (kW)',0,null,0,null)}});
+
+  // Max speed bar
+  mkChart('chart_umax',{type:'bar',
+    data:{
+      labels:RESULTS.map(r=>`i₀=${r.i0}`),
+      datasets:[
+        {label:'最高车速 (km/h)',data:RESULTS.map(r=>r.umax.toFixed(1)),
+         backgroundColor:RESULTS.map(r=>r.color+'bb'),
+         borderColor:RESULTS.map(r=>r.color),borderWidth:1.5,borderRadius:4},
+      ]
+    },
+    options:{responsive:true,animation:{duration:200},plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'#1a3050'},ticks:{color:'#5a7a9a'}},
+        y:{beginAtZero:true,max:Math.ceil(Math.max(...RESULTS.map(r=>r.umax))*1.08/10)*10,
+          title:{display:true,text:'km/h',color:'#5a7a9a'},
+          grid:{color:'#1a3050'},ticks:{color:'#5a7a9a'}},
+      }},
+  });
+}
+
+// ── 摘要卡片 ──
+function renderSummaryCards(){
+  const pick=(key,cmp)=>RESULTS.filter(r=>Number.isFinite(key(r))).reduce((b,r)=>!b||cmp(key(r),key(b))?r:b,null)||RESULTS[0];
+  const bestQ=pick(r=>r.q60,(a,b)=>a<b);
+  const bestT=pick(r=>r.t,(a,b)=>a<b);
+  const bestUmax=pick(r=>r.umax,(a,b)=>a>b);
+  const bestScore=pick(r=>r[yMode]*r.t,(a,b)=>a<b);
+  const uLabel= fuelUnit==='l100' ? 'L/100km' : 'km/L';
+  const fmt60= fuelUnit==='l100' ? bestQ.q60.toFixed(2) : (100/bestQ.q60).toFixed(2);
+  $('summary_cards').innerHTML=[
+    {label:'最省油 i₀',val:bestQ.i0,unit:'',note:`Qs=${fmt60}${uLabel} @60km/h`,color:'green'},
+    {label:'最快加速 i₀',val:bestT.i0,unit:'',note:`t=${bestT.t.toFixed(2)}s（${bestT.p.ag}档→${gv('accel_target').toFixed(0)}km/h）`,color:'red'},
+    {label:'最高车速 i₀',val:bestUmax.i0,unit:'',note:`${bestUmax.umax.toFixed(1)} km/h`,color:'blue'},
+    {label:'综合最优 i₀',val:bestScore.i0,unit:'',note:`当前工况 Qs·t = ${(bestScore[yMode]*bestScore.t).toFixed(1)}`,color:'amber'},
+  ].map(c=>`<div class="card ${c.color}"><div class="card-label">${c.label}</div>
+    <div class="card-val">${c.val}<span class="card-unit">${c.unit}</span></div>
+    <div class="card-note">${c.note}</div></div>`).join('');
+}
+
+// ── i₀选择器（功率图）──
+function buildI0Selector(){
+  const div=$('i0_selector');
+  div.innerHTML=RESULTS.map((r,i)=>`
+    <button onclick="selI0(${i})" id="i0sel_${i}"
+      style="padding:5px 14px;border-radius:var(--r);font-size:.82rem;font-weight:700;
+      cursor:pointer;border:1px solid ${r.color};
+      background:${i===selectedI0idx?r.color+'44':'transparent'};
+      color:${r.color};transition:.15s">i₀=${r.i0}</button>`).join('');
+}
+function selI0(i){ selectedI0idx=i; buildI0Selector(); renderPower(); }
+
+// ─────────────────────────────────────────────────────
+// UI 管理
+// ─────────────────────────────────────────────────────
+function sw(i){
+  document.querySelectorAll('.tab').forEach((t,k)=>t.classList.toggle('active',k===i));
+  document.querySelectorAll('.page').forEach((p,k)=>p.classList.toggle('active',k===i));
+  scheduleActiveRender();
+}
+// Render only after a page has a real layout; hidden charts have zero available width.
+function renderActivePage(){
+  if(!RESULTS.length) return;
+  const active=document.querySelector('.page.active').id;
+  if(active==='pg0') renderTradeoff();
+  else if(active==='pg1') renderRadar();
+  else if(active==='pg2') renderFuelCurves();
+  else if(active==='pg3') renderVtCurves();
+  else if(active==='pg4') renderPower();
+}
+let chartRenderFrame=0;
+function scheduleActiveRender(){
+  cancelAnimationFrame(chartRenderFrame);
+  chartRenderFrame=requestAnimationFrame(renderActivePage);
+}
+// 按实际可用宽度切换桌面排布：结果区够宽时图表并排，参数栏调宽后输入项改为多列
+function updateLayoutClasses(){
+  const right=document.querySelector('.right'), left=document.querySelector('.left');
+  const rw=right.clientWidth, lw=left.clientWidth;
+  right.classList.toggle('is-wide',rw>=980);
+  right.classList.toggle('is-xwide',rw>=1300);
+  left.classList.toggle('is-roomy',lw>=500);
+  left.classList.toggle('is-wide',lw>=660);
+}
+let chartLayoutWidth=0;
+let sideDragging=false;   // 拖动分隔条期间只让 Chart.js 自适应，松开后再整体重绘
+const chartLayoutObserver=new ResizeObserver(()=>{
+  updateLayoutClasses();
+  if(sideDragging) return;
+  const width=document.querySelector('.right').getBoundingClientRect().width;
+  if(width>0&&Math.abs(width-chartLayoutWidth)>0.5){
+    chartLayoutWidth=width;
+    scheduleActiveRender();
+  }
+});
+chartLayoutObserver.observe(document.querySelector('.right'));
+chartLayoutObserver.observe(document.querySelector('.left'));
+window.addEventListener('resize',scheduleActiveRender);
+
+// ── 参数栏宽度：拖动分隔条调整，双击恢复默认，← → 键微调（宽度保存在本机浏览器）──
+const SIDE_KEY='i0Tradeoff_sideWidth_v1', SIDE_WIDE=760;
+let sideW=null;   // null = 按窗口宽度取默认值
+function sideDefault(){ return Math.round(Math.min(420,Math.max(340,window.innerWidth*0.24))); }
+function renderSideW(){
+  const max=Math.round(Math.max(320,Math.min(760,window.innerWidth*0.6)));
+  const v=Math.round(Math.max(300,Math.min(sideW??sideDefault(),max)));
+  document.documentElement.style.setProperty('--side-w',v+'px');
+  const sp=$('splitter');
+  sp.setAttribute('aria-valuenow',String(v)); sp.setAttribute('aria-valuemax',String(max));
+  const btn=$('side_wide_btn');
+  if(btn) btn.textContent=v>=600?'⇔ 恢复参数栏宽度':'⇔ 加宽参数栏';
+  updateLayoutClasses();
+}
+function setSideW(w,save=true){
+  sideW=w; renderSideW();
+  if(!save) return;
+  try{ if(w===null) localStorage.removeItem(SIDE_KEY); else localStorage.setItem(SIDE_KEY,String(Math.round(w))); }catch(e){}
+}
+function toggleWideSide(){
+  setSideW(document.querySelector('.left').getBoundingClientRect().width>=600?null:SIDE_WIDE);
+}
+(function initSideResize(){
+  try{ const s=parseFloat(localStorage.getItem(SIDE_KEY)); if(Number.isFinite(s)) sideW=s; }catch(e){}
+  renderSideW();
+  const sp=$('splitter');
+  sp.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    sp.setPointerCapture(e.pointerId);
+    sideDragging=true; document.body.classList.add('side-dragging');
+    const x0=document.querySelector('.left').getBoundingClientRect().left;
+    const move=ev=>setSideW(ev.clientX-x0-3,false);
+    const end=()=>{
+      sp.removeEventListener('pointermove',move);
+      sp.removeEventListener('pointerup',end);
+      sp.removeEventListener('pointercancel',end);
+      sideDragging=false; document.body.classList.remove('side-dragging');
+      setSideW(document.querySelector('.left').getBoundingClientRect().width);
+      chartLayoutWidth=document.querySelector('.right').getBoundingClientRect().width;
+      scheduleActiveRender();
+    };
+    sp.addEventListener('pointermove',move);
+    sp.addEventListener('pointerup',end);
+    sp.addEventListener('pointercancel',end);
+  });
+  sp.addEventListener('dblclick',()=>setSideW(null));
+  sp.addEventListener('keydown',e=>{
+    const d={ArrowLeft:-1,ArrowRight:1}[e.key];
+    if(!d) return;
+    e.preventDefault();
+    setSideW(document.querySelector('.left').getBoundingClientRect().width+d*(e.shiftKey?80:20));
+  });
+  window.addEventListener('resize',renderSideW);
+})();
+
+// ── 快捷键：Ctrl+Enter（Mac 为 ⌘+Enter）= 全部计算；正在编辑的输入框先提交 ──
+document.addEventListener('keydown',e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.key!=='Enter') return;
+  const overlay=document.getElementById('lab-overlay');
+  if(overlay&&!overlay.hidden) return;
+  e.preventDefault();
+  const before=runCount, el=document.activeElement;
+  if(el&&el.matches&&el.matches('input,select')){ el.blur(); if(el.isConnected) el.focus(); }
+  if(runCount===before) runAll();   // 输入框的 change 已触发计算时不重复计算
+});
+function tog(id){ $(id).classList.toggle('collapsed'); }
+function setYMode(m,btn){
+  yMode=m;
+  document.querySelectorAll('#metric_selector .y-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSummaryCards();
+  renderTradeoff();
+}
+function setFuelUnit(u,btn){
+  fuelUnit=u;
+  document.querySelectorAll('#unit_selector .y-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSummaryCards();
+  renderTradeoff();
+}
+
+// ── i₀ list UI ──
+function buildI0List(){
+  const div=$('i0_list');
+  div.innerHTML='';
+  i0List.forEach((v,i)=>{
+    const row=document.createElement('div');
+    row.className='i0-row';
+    const col=I0_COLORS[i%I0_COLORS.length];
+    row.innerHTML=`
+      <div class="i0-color-dot" style="background:${col}"></div>
+      <input type="number" value="${blankIfNaN(v)}" placeholder="待填" step="0.01"
+        onchange="{const x=parseFloat(this.value);i0List[${i}]=Number.isFinite(x)?x:null;runAll();}" style="max-width:90px">
+      <span style="font-size:.75rem;color:var(--ink3);flex:1">
+        n@60km/h≈<span id="n60_${i}" style="color:${col}">—</span>rpm</span>
+      <button class="i0-del" onclick="delI0(${i})">✕</button>`;
+    div.appendChild(row);
+  });
+}
+function addI0Row(){
+  i0List.push(null);
+  buildI0List();
+}
+function delI0(i){
+  if(i0List.length<=2){alert('至少保留2个i₀值');return;}
+  i0List.splice(i,1);
+  buildI0List();
+}
+
+// ── n@60 预览 ──
+function updateN60Previews(){
+  const p=getP();
+  i0List.forEach((i0,idx)=>{
+    const el=$(`n60_${idx}`);
+    if(el) el.textContent=D.ua2n(60,p.gears[p.gt-1],{...p.dyn,i0}).toFixed(0);
+  });
+}
+
+// ── Main run ──
+let runCount=0;
+function runAll(){
+  runCount++;
+  syncEngFromDOM(); readPolyFromDOM();
+  const chk=checkInputs();
+  showInputHint(chk);
+  if(!chk.ok){ clearResults(); return; }
+  try{ calcAll_i0(); }
+  catch(e){ console.error(e); clearResults();
+    showInputHint({ok:false,missing:{},errs:['计算出错，请检查参数是否填写正确（'+e.message+'）']}); return; }
+  if(RESULTS.some(r=>!Number.isFinite(r.umax)||!Number.isFinite(r.t))){
+    clearResults(); showInputHint({ok:false,missing:{},errs:['计算结果无效，请检查参数的数值和单位是否正确']}); return; }
+  selectedI0idx=Math.max(0,Math.min(selectedI0idx,RESULTS.length-1));
+  renderSummaryCards();
+  renderCompare();
+  buildI0Selector();
+  renderActivePage();
+  updateN60Previews();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 保存 / 恢复我的基准（与实验2相同，保存在本机浏览器）
+// ═══════════════════════════════════════════════════════════════
+const MY_BASE_KEY='i0Tradeoff_myBaseline_v1';
+function saveMyBaseline(){
+  syncEngFromDOM(); readPolyFromDOM();
+  const inputs={};
+  document.querySelectorAll('.left input[id], .left select[id], #gear_type').forEach(el=>{
+    if(/^(pc_|pn_|ec_)/.test(el.id)) return;
+    inputs[el.id]= el.type==='checkbox'?el.checked:el.value;
+  });
+  const data={time:new Date().toLocaleString('zh-CN'),inputs,
+    engState:JSON.parse(JSON.stringify(engState)),
+    polyState:JSON.parse(JSON.stringify(polyState)),
+    i0List:[...i0List]};
+  try{ localStorage.setItem(MY_BASE_KEY,JSON.stringify(data)); alert('已保存当前参数为基准（'+data.time+'）'); }
+  catch(e){ alert('保存失败：浏览器不允许本地存储'); }
+}
+function restoreMyBaseline(){
+  let data=null;
+  try{ data=JSON.parse(localStorage.getItem(MY_BASE_KEY)||'null'); }catch(e){}
+  if(!data){ alert('还没有保存过基准，请先点击「保存当前参数为基准」'); return; }
+  if(!confirm('恢复 '+data.time+' 保存的基准？当前修改将被覆盖。')) return;
+  const inp=data.inputs||{};
+  if(inp.gear_type){ $('gear_type').value=inp.gear_type; onGearChange(false); }
+  Object.entries(inp).forEach(([id,v])=>{ const el=$(id); if(!el) return;
+    if(el.type==='checkbox') el.checked=v; else el.value=v; });
+  if(data.engState){ engState=data.engState; buildEngTable(); }
+  if(data.polyState){ polyState=data.polyState; buildPolyTable(); }
+  if(Array.isArray(data.i0List)&&data.i0List.length>=2){ i0List=data.i0List; buildI0List(); }
+  runAll();
+}
+
+// ─────────────────────────────────────────────────────
+// 初始化
+// ─────────────────────────────────────────────────────
+buildEngTable();
+buildPolyTable();
+onGearChange(false);
+buildI0List();
+document.querySelectorAll('.left input, .left select').forEach(el=>{
+  if(el.closest('#g_i0')||/^(ec_|pc_|pn_)/.test(el.id)) return;   // i₀ 列表修改后点「全部计算」；系数表由容器统一监听
+  el.addEventListener('change',runAll);
+});
+$('eng_coef_grid').addEventListener('change',runAll);
+$('poly_tbody').addEventListener('change',runAll);
+runAll();
+</script>
+
+
+
+
+<!-- LAB_PLATFORM_SCRIPT_BEGIN -->
+<script>
+const LAB_EXPERIMENT=3;
+const LAB_CONFIGS={"1":{"experiment":1,"title":"实验1动力性仿真","file":"test1_vehicle_dynamics_teacher__5_动力性mobile.html","benchmark":{"id":"word-1-20261016-v1","title":"Word示范基准 2026年10月16日","source":"03_实验二_汽车动力性_实验报告示范版.docx","sourceSha256":"45f088d992e9e27dcc49bf68dd16b221b32afbcc581292228495da19902b5082","relativeTolerance":0.005,"metrics":[{"id":"umax","label":"最高车速","value":99.06685707218939,"unit":"km/h","max":10,"rule":{"kind":"dyn","row":"最高车速"},"absTol":0.005},{"id":"ft1","label":"一档最大驱动力","value":13.1356486406649,"unit":"kN","max":10,"rule":{"kind":"dyn","row":"一档最大驱动力"},"absTol":0.0005},{"id":"grade","label":"最大爬坡度","value":35.208826468195994,"unit":"%","max":10,"rule":{"kind":"dyn","row":"最大爬坡度"},"absTol":0.005},{"id":"angle","label":"对应坡角","value":19.396568053401793,"unit":"°","max":6,"rule":{"kind":"dyn","row":"对应坡角"},"absTol":0.005},{"id":"n2","label":"后轴法向载荷","value":25.57129118501869,"unit":"kN","max":6,"rule":{"kind":"dyn","row":"后轴法向载荷"},"absTol":0.0005},{"id":"phi","label":"所需附着系数","value":0.5136873435769489,"unit":"无量纲","max":8,"rule":{"kind":"dyn","row":"所需附着系数"},"absTol":0.0005},{"id":"time","label":"基准加速时间 原始读数","value":26.581765313400123,"unit":"s","max":10,"rule":{"kind":"dyn","row":"加速时间原始读数"},"absTol":0.005},{"id":"delta1","label":"Ⅰ档旋转质量系数","value":1.4486333626895957,"unit":"无量纲","max":6,"rule":{"kind":"delta"},"absTol":0.0005},{"id":"n60","label":"60 km/hⅤ档发动机转速","value":2004.8670487644463,"unit":"r/min","max":8,"rule":{"kind":"n60"},"absTol":0.005},{"id":"fr60","label":"60 km/h平路阻力合计","value":966.3057617021277,"unit":"N","max":6,"rule":{"kind":"fr60"},"absTol":0.0005}],"parameters":"五档；m=3880 kg；r=0.367 m；f=0.013；CD·A=2.77 m²；η=0.85；i₀=5.83；默认四次转矩及内置负荷数据。二档开始，目标70 km/h。"}},"2":{"experiment":2,"title":"实验2经济性仿真","file":"test_2_汽车经济性计算_手机适配版.html","benchmark":{"id":"word-2-20261016-v1","title":"Word示范基准 2026年10月16日","source":"02_实验一_汽车燃油经济性_实验报告示范版.docx","sourceSha256":"97259bb718fc5caa9207910c3383bdcf2b4cd91841f1973e40f7608239337927","relativeTolerance":0.005,"metrics":[{"id":"fuel3_40","label":"Ⅳ档 40 km/h等速油耗","value":14.432752474836262,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅳ","speed":40},"absTol":0.005},{"id":"fuel4_40","label":"Ⅴ档 40 km/h等速油耗","value":13.222903144812037,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅴ","speed":40},"absTol":0.005},{"id":"fuel3_60","label":"Ⅳ档 60 km/h等速油耗","value":15.331103819775244,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅳ","speed":60},"absTol":0.005},{"id":"fuel4_60","label":"Ⅴ档 60 km/h等速油耗","value":14.0408514571996,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅴ","speed":60},"absTol":0.005},{"id":"fuel3_80","label":"Ⅳ档 80 km/h等速油耗","value":18.242134208123215,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅳ","speed":80},"absTol":0.005},{"id":"fuel4_80","label":"Ⅴ档 80 km/h等速油耗","value":17.704593902751625,"unit":"L/100km","max":8,"rule":{"kind":"fuel","gear":"Ⅴ","speed":80},"absTol":0.005},{"id":"totalQbaseline","label":"Ⅴ档循环总耗油量","value":146.11468738798635,"unit":"mL","max":8,"rule":{"kind":"cycle","gear":"Ⅴ","row":"总耗油量"},"absTol":0.0005},{"id":"cyclebaseline","label":"Ⅴ档循环油耗","value":13.591901344956895,"unit":"L/100km","max":8,"rule":{"kind":"cycle","gear":"Ⅴ","row":"循环油耗"},"absTol":0.0005},{"id":"totalQsecondary","label":"Ⅳ档循环总耗油量","value":161.22471981232175,"unit":"mL","max":8,"rule":{"kind":"cycle","gear":"Ⅳ","row":"总耗油量"},"absTol":0.0005},{"id":"cyclesecondary","label":"Ⅳ档循环油耗","value":14.997468941904392,"unit":"L/100km","max":8,"rule":{"kind":"cycle","gear":"Ⅳ","row":"循环油耗"},"absTol":0.0005}],"parameters":"五档；m=3880 kg；r=0.367 m；f=0.013；CD·A=2.77 m²；η=0.85；i₀=5.83；默认四次转矩及内置负荷数据。等速γ=7.15 N/L，循环γ=7.10 N/L。"}},"3":{"experiment":3,"title":"实验3动力性经济性匹配","file":"test3_i0_tradeoff_mobile.html","benchmark":{"id":"tool-3-20261107-v3","title":"工具计算基准 2026年11月7日（算法与实验1、实验2一致，bₑ取法方案A）","source":"test3_i0_tradeoff_mobile.html 当前算法（动力性同实验1，经济性同实验2）","sourceSha256":"","relativeTolerance":0.005,"metrics":[{"id":"i5.17_umax","label":"i₀=5.17 最高车速","value":93.09787600401592,"unit":"km/h","max":3,"rule":{"kind":"match","i0":5.17,"col":"最高车速"},"absTol":0.005},{"id":"i5.17_grade","label":"i₀=5.17 最大爬坡度","value":30.649071234517162,"unit":"%","max":3,"rule":{"kind":"match","i0":5.17,"col":"坡度"},"absTol":0.005},{"id":"i5.17_t","label":"i₀=5.17 工具原始加速时间","value":26.92342080529751,"unit":"s","max":3,"rule":{"kind":"match","i0":5.17,"col":"工具时间"},"absTol":0.005},{"id":"i5.17_t10_70","label":"i₀=5.17 10至70 km/h时间","value":25.70498021046848,"unit":"s","max":3,"rule":{"kind":"match","i0":5.17,"col":"10至70"},"absTol":0.0005},{"id":"i5.17_q60","label":"i₀=5.17 60 km/h等速油耗","value":13.240533146450085,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.17,"col":"60km/h"},"absTol":0.0005},{"id":"i5.17_qjb","label":"i₀=5.17 六工况油耗","value":16.271719826695588,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.17,"col":"六工况"},"absTol":0.0005},{"id":"i5.43_umax","label":"i₀=5.43 最高车速","value":95.71210068751907,"unit":"km/h","max":3,"rule":{"kind":"match","i0":5.43,"col":"最高车速"},"absTol":0.005},{"id":"i5.43_grade","label":"i₀=5.43 最大爬坡度","value":32.42338045845147,"unit":"%","max":3,"rule":{"kind":"match","i0":5.43,"col":"坡度"},"absTol":0.005},{"id":"i5.43_t","label":"i₀=5.43 工具原始加速时间","value":26.97588028308394,"unit":"s","max":3,"rule":{"kind":"match","i0":5.43,"col":"工具时间"},"absTol":0.005},{"id":"i5.43_t10_70","label":"i₀=5.43 10至70 km/h时间","value":25.756399446019632,"unit":"s","max":3,"rule":{"kind":"match","i0":5.43,"col":"10至70"},"absTol":0.0005},{"id":"i5.43_q60","label":"i₀=5.43 60 km/h等速油耗","value":13.358580384872432,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.43,"col":"60km/h"},"absTol":0.0005},{"id":"i5.43_qjb","label":"i₀=5.43 六工况油耗","value":14.608350040633349,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.43,"col":"六工况"},"absTol":0.0005},{"id":"i5.83_umax","label":"i₀=5.83 最高车速","value":99.06685707218939,"unit":"km/h","max":3,"rule":{"kind":"match","i0":5.83,"col":"最高车速"},"absTol":0.005},{"id":"i5.83_grade","label":"i₀=5.83 最大爬坡度","value":35.208826468195994,"unit":"%","max":3,"rule":{"kind":"match","i0":5.83,"col":"坡度"},"absTol":0.005},{"id":"i5.83_t","label":"i₀=5.83 工具原始加速时间","value":26.522144609325064,"unit":"s","max":3,"rule":{"kind":"match","i0":5.83,"col":"工具时间"},"absTol":0.005},{"id":"i5.83_t10_70","label":"i₀=5.83 10至70 km/h时间","value":25.312570602921674,"unit":"s","max":3,"rule":{"kind":"match","i0":5.83,"col":"10至70"},"absTol":0.0005},{"id":"i5.83_q60","label":"i₀=5.83 60 km/h等速油耗","value":13.588532082142319,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.83,"col":"60km/h"},"absTol":0.0005},{"id":"i5.83_qjb","label":"i₀=5.83 六工况油耗","value":13.655194962085758,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":5.83,"col":"六工况"},"absTol":0.0005},{"id":"i6.17_umax","label":"i₀=6.17 最高车速","value":100.98403951252234,"unit":"km/h","max":3,"rule":{"kind":"match","i0":6.17,"col":"最高车速"},"absTol":0.005},{"id":"i6.17_grade","label":"i₀=6.17 最大爬坡度","value":37.63498748267649,"unit":"%","max":3,"rule":{"kind":"match","i0":6.17,"col":"坡度"},"absTol":0.005},{"id":"i6.17_t","label":"i₀=6.17 工具原始加速时间","value":25.966673341329912,"unit":"s","max":3,"rule":{"kind":"match","i0":6.17,"col":"工具时间"},"absTol":0.005},{"id":"i6.17_t10_70","label":"i₀=6.17 10至70 km/h时间","value":24.772121904517483,"unit":"s","max":3,"rule":{"kind":"match","i0":6.17,"col":"10至70"},"absTol":0.0005},{"id":"i6.17_q60","label":"i₀=6.17 60 km/h等速油耗","value":13.888081830024412,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":6.17,"col":"60km/h"},"absTol":0.0005},{"id":"i6.17_qjb","label":"i₀=6.17 六工况油耗","value":13.19428942421665,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":6.17,"col":"六工况"},"absTol":0.0005},{"id":"i6.33_umax","label":"i₀=6.33 最高车速","value":101.52027351143498,"unit":"km/h","max":3,"rule":{"kind":"match","i0":6.33,"col":"最高车速"},"absTol":0.005},{"id":"i6.33_grade","label":"i₀=6.33 最大爬坡度","value":38.79699173994427,"unit":"%","max":3,"rule":{"kind":"match","i0":6.33,"col":"坡度"},"absTol":0.005},{"id":"i6.33_t","label":"i₀=6.33 工具原始加速时间","value":25.675241318150068,"unit":"s","max":3,"rule":{"kind":"match","i0":6.33,"col":"工具时间"},"absTol":0.005},{"id":"i6.33_t10_70","label":"i₀=6.33 10至70 km/h时间","value":24.489014801343213,"unit":"s","max":3,"rule":{"kind":"match","i0":6.33,"col":"10至70"},"absTol":0.0005},{"id":"i6.33_q60","label":"i₀=6.33 60 km/h等速油耗","value":13.983797446666607,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":6.33,"col":"60km/h"},"absTol":0.0005},{"id":"i6.33_qjb","label":"i₀=6.33 六工况油耗","value":13.138820176490835,"unit":"L/100km","max":2,"rule":{"kind":"match","i0":6.33,"col":"六工况"},"absTol":0.0005}],"parameters":"五档；m=3880 kg；r=0.367 m；f=0.013；CD·A=2.77 m²；ηt=0.85；默认四次转矩多项式；教材492QC-2负荷特性系数；bₑ取法方案A（剔除外推点后拟合）；动力性g=9.81、经济性g=9.8、ρg=7.15 N/L；二档起步，目标70 km/h。匹配候选5.17/5.43/5.83/6.17/6.33，含共同10至70区间。","scheme":"match-v2"}}};
+const LAB_PASSWORD_HASH="f7641211d1a0d7d3d8df2a643453e09d460523fc03ef586b3887a6c26dbd3f25";
+/* Report extraction and evidence-based grading. No server upload. */
+const LabGrading = (() => {
+  const norm = s => String(s ?? '').normalize('NFKC').replace(/[\s\u200b\uFEFF]/g,'').replace(/[_·•]/g,'').toLowerCase();
+  const numeric = s => { const m=String(s).replace(/,/g,'').match(/[−-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i);return m?Number(m[0].replace('−','-')):null; };
+  const xmlText = node => [...node.getElementsByTagName('*')].filter(e=>e.localName==='t').map(e=>e.textContent).join('');
+  function splitTables(tables){
+    const result=[];
+    for(const table of tables||[]){let rows=[];
+      for(const row of table.rows){
+        const first=norm(row[0]);
+        if(rows.length>1&&/^(指标|参数|工况|i0|档位|段|车速km\/h)$/.test(first)){
+          result.push({rows});rows=[];
+        }
+        rows.push(row);
+      }
+      if(rows.length)result.push({rows});
+    }
+    return result;
+  }
+  function fromText(text, name='粘贴的报告文本') {
+    const lines=String(text).replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
+    const tables=[];let rows=[];
+    for(const line of [...lines,'']) {
+      if(line.includes('\t') || /^\|.*\|$/.test(line)) {
+        const cells=line.split(line.includes('\t')?'\t':'|').map(x=>x.trim()).filter(Boolean);
+        if(cells.length>=2 && !cells.every(x=>/^[-: ]+$/.test(x)))rows.push(cells);
+      } else if(rows.length){tables.push({rows});rows=[];}
+    }
+    return {text:lines.join('\n'),lines,tables,fileName:name};
+  }
+  async function unzipPart(buffer, wanted) {
+    const bytes=new Uint8Array(buffer),v=new DataView(buffer);let end=-1;
+    for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--)if(v.getUint32(i,true)===0x06054b50){end=i;break;}
+    if(end<0)throw Error('无法识别Word文件，请选择未加密的DOCX文件。');
+    if(v.getUint16(end+4,true)!==0||v.getUint16(end+6,true)!==0)throw Error('不支持分卷Word文件。');
+    let pos=v.getUint32(end+16,true);const count=v.getUint16(end+10,true);
+    for(let i=0;i<count;i++){
+      if(pos+46>bytes.length||v.getUint32(pos,true)!==0x02014b50)throw Error('DOCX目录损坏。');
+      const flags=v.getUint16(pos+8,true),method=v.getUint16(pos+10,true),size=v.getUint32(pos+20,true),unpacked=v.getUint32(pos+24,true);
+      const nl=v.getUint16(pos+28,true),el=v.getUint16(pos+30,true),cl=v.getUint16(pos+32,true),offset=v.getUint32(pos+42,true);
+      const name=new TextDecoder().decode(bytes.subarray(pos+46,pos+46+nl));
+      if(name===wanted){
+        if(flags&1)throw Error('请先解除Word文件密码保护。');
+        if(unpacked>12*1024*1024)throw Error('报告正文过大，请精简后重试。');
+        if(offset+30>bytes.length||v.getUint32(offset,true)!==0x04034b50)throw Error('DOCX正文记录损坏。');
+        const start=offset+30+v.getUint16(offset+26,true)+v.getUint16(offset+28,true);
+        if(start+size>bytes.length)throw Error('DOCX正文不完整。');
+        const data=bytes.subarray(start,start+size);
+        if(method===0)return new TextDecoder('utf-8',{fatal:true}).decode(data);
+        if(method!==8)throw Error('该Word压缩方式暂不支持，请另存为DOCX或TXT。');
+        let stream;try{stream=new DecompressionStream('deflate-raw');}catch{throw Error('当前浏览器不支持Word解压，请使用新版Edge或Chrome，或粘贴报告文本。');}
+        const reader=new Blob([data]).stream().pipeThrough(stream).getReader();const chunks=[];let total=0;
+        while(true){const {done,value}=await reader.read();if(done)break;total+=value.length;if(total>12*1024*1024){await reader.cancel();throw Error('解压正文超过大小限制。');}chunks.push(value);}
+        const result=new Uint8Array(total);let k=0;for(const chunk of chunks){result.set(chunk,k);k+=chunk.length;}
+        return new TextDecoder('utf-8',{fatal:true}).decode(result);
+      }
+      pos+=46+nl+el+cl;
+    }
+    throw Error('Word文件缺少正文，请另存为标准DOCX。');
+  }
+  async function docx(buffer,name){
+    const source=await unzipPart(buffer,'word/document.xml');
+    const dom=new DOMParser().parseFromString(source,'application/xml');
+    if(dom.querySelector('parsererror'))throw Error('Word正文XML损坏。');
+    const body=[...dom.getElementsByTagName('*')].find(x=>x.localName==='body');
+    if(!body)throw Error('Word文件缺少文档内容。');
+    const lines=[],tables=[];
+    for(const el of body.children){
+      if(el.localName==='tbl'){
+        const rows=[...el.children].filter(x=>x.localName==='tr').map(row=>[...row.children].filter(x=>x.localName==='tc').map(xmlText));
+        if(rows.length){tables.push({rows});for(const row of rows)lines.push(row.join('\t'));}
+      }else if(el.localName==='p'){const line=xmlText(el).trim();if(line)lines.push(line);}
+    }
+    return {fileName:name,text:lines.join('\n'),lines,tables};
+  }
+  let pdfReady;
+  async function pdf(buffer,name){
+    if(!window.pdfjsLib){
+      if(!pdfReady)pdfReady=new Promise((resolve,reject)=>{
+        const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=resolve;s.onerror=()=>{pdfReady=null;reject(Error('PDF解析库未加载，请联网后重试，或使用DOCX/TXT。'));};document.head.appendChild(s);
+      });
+      await pdfReady;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const file=await pdfjsLib.getDocument({data:buffer}).promise;
+    if(file.numPages>100){await file.destroy();throw Error('报告超过100页，请精简。');}
+    const lines=[];const tables=[];
+    try{for(let i=1;i<=file.numPages;i++){
+      const page=await file.getPage(i),content=await page.getTextContent(),groups=[];
+      for(const item of content.items){if(!item.str?.trim())continue;let line=groups.find(g=>Math.abs(g.y-item.transform[5])<2.5);if(!line){line={y:item.transform[5],items:[]};groups.push(line);}line.items.push(item);}
+      let tableRows=[];
+      for(const group of groups.sort((a,b)=>b.y-a.y)){
+        const items=group.items.sort((a,b)=>a.transform[4]-b.transform[4]);let cells=[],cell='',right=0;
+        for(const item of items){if(cell&&item.transform[4]-right>13){cells.push(cell);cell='';}cell+=item.str;right=item.transform[4]+item.width;}
+        if(cell)cells.push(cell);
+        lines.push(cells.join('\t'));
+        if(cells.length>=2)tableRows.push(cells);else if(tableRows.length){tables.push({rows:tableRows});tableRows=[];}
+      }
+      if(tableRows.length)tables.push({rows:tableRows});
+    }}finally{await file.destroy();}
+    const doc={fileName:name,lines,tables,text:lines.join('\n')};
+    if(doc.text.replace(/\s/g,'').length<50)throw Error('PDF未识别到足够文字。扫描件请改用原始DOCX或可复制文字的PDF。');
+    return doc;
+  }
+  async function read(file){
+    if(file.size>20*1024*1024)throw Error('文件超过20 MB，请精简后再选择。');
+    if(/\.docx$/i.test(file.name))return docx(await file.arrayBuffer(),file.name);
+    if(/\.pdf$/i.test(file.name))return pdf(await file.arrayBuffer(),file.name);
+    if(/\.txt$/i.test(file.name)){const text=await file.text();if(text.includes('--- SYSTEM DATA BEGIN ---'))throw Error('这是评阅结果TXT，请到教师管理中导入；报告评阅请上传原始报告。');return fromText(text,file.name);}
+    throw Error('请选择DOCX、可复制文字的PDF或UTF-8 TXT报告。');
+  }
+  function valueOf(raw,unit,context=''){
+    let value=numeric(raw);if(value===null||!Number.isFinite(value))return null;
+    const all=norm(raw+' '+context);
+    const explicit=norm(raw).match(/l\/100km|km\/l|km\/h|m\/s|r\/min|kn|ml|kg|mpa|°|%|(?:\d|\))\s*(n|s|min|l)\b/);
+    const dimension=explicit?(explicit[1]||explicit[0].replace(/^[\d)]+/,'')):null;
+    const accepted={'km/h':['km/h','m/s'],'kN':['kn','n'],'N':['kn','n'],'%':['%'],'°':['°'],'mL':['ml','l'],'L/100km':['l/100km','km/l'],'s':['s','min'],'r/min':['r/min'],'无量纲':['%']};
+    if(dimension&&accepted[unit]&&!accepted[unit].includes(dimension))return null;
+    if(unit==='km/h'&&all.includes('m/s'))value*=3.6;
+    if(unit==='L/100km'&&all.includes('km/l')){if(value<=0)return null;value=100/value;}
+    if(unit==='s'&&dimension==='min')value*=60;
+    if(unit==='无量纲'&&dimension==='%')value/=100;
+    if(unit==='kN'&&!all.includes('kn')&&/(?:\d|\))n(?:$|[^a-z])/i.test(all))value/=1000;
+    if(unit==='N'&&all.includes('kn'))value*=1000;
+    if(unit==='mL'&&!all.includes('ml')&&/\dl(?:$|[^a-z/])/i.test(all))value*=1000;
+    return value;
+  }
+  const gearIs=(h,g)=>g==='Ⅳ'?/^(iv|4)档/.test(norm(h)):/^(v|5)档/.test(norm(h));
+  function extract(document,metric){
+    const rule=metric.rule,found=[];let tableEvidence=null;
+    const add=(raw,evidence,context='',fromTable=true)=>{if(fromTable)tableEvidence=String(evidence).slice(0,550);const value=valueOf(raw,metric.unit,context);if(value!==null)found.push({value,evidence:String(evidence).slice(0,550),raw:String(raw).slice(0,120)});};
+    for(const table of splitTables(document.tables)){
+      const rows=table.rows;if(rows.length<2)continue;
+      const headers=rows[0];
+      if(rule.kind==='dyn'){
+        for(const row of rows.slice(1))if(norm(row[0]).startsWith(norm(rule.row))){
+          let col=headers.findIndex(h=>/^(结果|数值)/.test(norm(h)));if(col<0)col=1;
+          if(row[col]!==undefined)add(row[col],row.join(' | '),headers[col]);
+        }
+      }else if(rule.kind==='delta'){
+        const col=headers.findIndex(h=>norm(h)==='δ'||norm(h)==='delta');
+        const row=rows.slice(1).find(r=>/^(i|1)(档)?$/.test(norm(r[0])));
+        if(col>=0&&row)add(row[col],row.join(' | '),headers[col]);
+      }else if(rule.kind==='fuel'){
+        const col=headers.findIndex(h=>gearIs(h,rule.gear)&&!norm(h).includes('降低'));
+        const row=rows.slice(1).find(r=>numeric(r[0])===rule.speed);
+        if(col>=0&&row)add(row[col],`${headers.join(' | ')}\n${row.join(' | ')}`,headers[col]);
+      }else if(rule.kind==='cycle'){
+        const col=headers.findIndex(h=>gearIs(h,rule.gear));
+        const row=rows.slice(1).find(r=>norm(r[0]).startsWith(norm(rule.row)));
+        if(col>=0&&row)add(row[col],`${headers.join(' | ')}\n${row.join(' | ')}`,row[0]);
+      }else if(rule.kind==='match'){
+        const isFuel=rule.col==='60km/h'||rule.col==='六工况';
+        const col=headers.findIndex(h=>norm(h).includes(norm(rule.col))&&(!isFuel||!norm(h).includes('km/l')));
+        const hasI0=/i0|主减速/.test(norm(headers[0]));
+        const row=hasI0?rows.slice(1).find(r=>numeric(r[0])===rule.i0):null;
+        if(col>=0&&row)add(row[col],`${headers.join(' | ')}\n${row.join(' | ')}`,headers[col]);
+      }
+    }
+    // A labelled table is authoritative; prose is only a fallback, never a global number search.
+    if(!found.length&&tableEvidence===null){
+      const lines=document.lines||String(document.text).split('\n');
+      for(const [index,line] of lines.entries()){
+        let m=null;
+        const nearby=lines.slice(Math.max(0,index-2),index+2).join(' ');
+        if(rule.kind==='n60'&&/60/.test(nearby)&&(/r\/min|rpm/.test(line))&&(/60/.test(line)||/n\s*[=＝]/.test(line))){m=line.match(/[≈约]\s*([\d.]+)\s*(?:r\/min|rpm)/i);}
+        else if(rule.kind==='fr60'&&/60\s*km\/h.*平路/.test(line)){m=line.match(/(?:合计|总阻力)[^\d]{0,8}([\d.]+)\s*N/);}
+        else if(rule.kind==='dyn'){
+          const aliases={time:'(?:加速时间原始读数|工具加速读数|工具时间|加速积分读数)',ft1:'(?:一档最大驱动力|1档最大驱动力)',angle:'(?:对应坡角|坡角)',n2:'后轴法向载荷',phi:'(?:所需附着系数|所需附着率)',umax:'最高车速',grade:'最大爬坡度'};
+          const pattern=aliases[metric.id]||rule.row;
+          m=line.match(new RegExp(pattern+'(?:为|约为|约|[:：=]|\\s){0,6}([\\d.]+)\\s*(kN|N|km/h|%|°|s)?','i'));
+          if(m&&metric.id==='grade'&&!m[2]?.includes('%'))m=null;
+        }else if(rule.kind==='delta')m=line.match(/(?:Ⅰ档|I档|一档|1档).{0,12}(?:δ|旋转质量系数)\s*[=:：为约]*\s*([\d.]+)/i);
+        else if(rule.kind==='fuel'){
+          const gear=rule.gear==='Ⅳ'?'(?:Ⅳ|IV|4|四)':'(?:Ⅴ|V|5|五)';
+          m=line.match(new RegExp(gear+'档.{0,5}'+rule.speed+'\\s*km/h.{0,8}(?:油耗|Qs)\\s*[=:：为约]*\\s*([\\d.]+)','i'));
+        }else if(rule.kind==='match'){
+          if(!new RegExp('i[₀0]?\\s*[=:：]\\s*'+String(rule.i0).replace('.','\\.')).test(line))continue;
+          const labels={最高车速:'最高车速',坡度:'(?:最大爬坡度|坡度)',工具时间:'(?:工具时间|原始加速时间)','10至70':'10(?:至|～|~|→|-)70(?:\\s*km/h)?.{0,5}(?:时间|s)', '60km/h':'60\\s*km/h.{0,6}(?:油耗|Qs)',六工况:'六工况(?:油耗)?'};
+          m=line.match(new RegExp(labels[rule.col]+'\\s*[=:：为约]*\\s*([\\d.]+)\\s*(kN|N|km/h|%|s)?','i'));
+        }
+        if(m)add(m[1]+(m[2]||''),line,'',false);
+      }
+    }
+    if(!found.length)return {value:null,status:tableEvidence?'数值或单位无效':'未识别',evidence:tableEvidence||'未找到与指标标签、档位或i₀明确对应的数值。'};
+    const values=found.map(f=>f.value),spread=Math.max(...values)-Math.min(...values);
+    if(spread>Math.max(metric.absTol*2,Math.abs(metric.value)*0.002))return {value:null,status:'多处不一致',evidence:found.map(f=>f.evidence).join('\n').slice(0,1600),candidates:values};
+    return {...found[0],status:'已识别'};
+  }
+  function otherScore(text){
+    const clean=String(text),n=clean.replace(/\s/g,'').length;
+    const structure=['实验目的','实验原理','实验步骤','实验结果','实验结论'].filter(x=>clean.includes(x));
+    const make=(id,label,checks)=>({id,label,max:4,score:checks.filter(x=>x[1]).length,checks:checks.map(([label,ok])=>({label,ok:!!ok}))});
+    return [
+      make('structure','报告结构', [['目的与原理章节',structure.includes('实验目的')&&structure.includes('实验原理')],['实验步骤章节',structure.includes('实验步骤')],['结果章节',structure.includes('实验结果')||clean.includes('仿真结果')],['结论章节',structure.includes('实验结论')]]),
+      make('principle','原理与单位',[['说明物理关系',/驱动力|阻力|功率/.test(clean)&&/油耗|加速|爬坡/.test(clean)],['给出公式或计算关系',/[=＝≈]|公式|除以|乘以/.test(clean)],['使用速度和时间单位',/km\s*\/\s*h/.test(clean)&&/\bs\b|秒/.test(clean)],['使用本实验相关单位',/L\s*\/\s*100|kN|\bN\b|r\s*\/\s*min/.test(clean)]]),
+      make('process','步骤与计算',[['记录给定参数',/参数/.test(clean)&&/3880|质量|传动比/.test(clean)],['描述操作步骤',/实验步骤/.test(clean)&&/计算|记录|查看/.test(clean)],['有计算核验过程',/核验|手算/.test(clean)&&/[=＝≈]|代入|除以/.test(clean)],['说明比较条件',/基准|控制变量|相同|恢复/.test(clean)]]),
+      make('analysis','结果分析',[['设置分析或讨论章节',/分析|讨论/.test(clean)],['使用比较解释',/降低|缩短|增加|对比|比较/.test(clean)&&/\d/.test(clean)],['说明变化原因',/因为|由于|因此|导致|作用|影响/.test(clean)],['说明模型或适用边界',/模型|近似|假设/.test(clean)&&/范围|限制|边界|条件|口径/.test(clean)]]),
+      make('conclusion','结论与反思',[['有实验结论',/实验结论/.test(clean)],['结论引用结果',/结论[\s\S]{0,500}\d/.test(clean)],['说明结论条件',/给定|工况|任务|条件/.test(clean)],['含体会或参考资料',/体会|反思|参考资料|参考文献/.test(clean)&&n>=300]])
+    ];
+  }
+
+  // ═══ 实验三 match-v2：内容分由「重算学生填写的结果表」得到 ═══
+  //   数据表全为占位符(？？？)时重算无可比对，内容分≈0，与实验一 param-v2 口径一致。
+  function _nz(s){ return String(s==null?'':s).normalize('NFKC').toLowerCase().replace(/[\s_·•,，]/g,''); }
+  function _cellNum(s){ const m=_nz(s).replace(/[−–—]/g,'-').match(/-?\d+(?:\.\d+)?/); return m?Number(m[0]):null; }
+  function _headers(t){ return (t.rows[0]||[]).map(_nz); }
+  function _findTable(doc,test){ return (doc.tables||[]).find(t=>t.rows.length>1&&test(_headers(t))); }
+  function _col(h,re){ return h.findIndex(x=>re.test(x)); }
+  // NFKC 会把「i₀」变成「i0」，不能直接取第一个数字；取首个落在合理主减速比范围内的数值
+  function _i0OfRow(row){ const nums=(_nz(row[0]).replace(/i0/g,' ').match(/\d+(?:\.\d+)?/g)||[]).map(Number); const v=nums.find(x=>x>=2&&x<=12); return v===undefined?null:v; }
+  // 读取报告使用的变速器档数（默认五档）
+  function _gearTypeFromDoc(document){
+    const txt=String(document.text||'');
+    // 给定参数表里「变速器档位」行，或正文「四档/4档/五档/5档」
+    const t=(document.tables||[]).find(tb=>tb.rows.some(r=>/变速器档位|变速器类型/.test(String(r[0]))));
+    if(t){ const row=t.rows.find(r=>/变速器档位|变速器类型/.test(String(r[0]))); if(row){ const m=String(row[1]||row.join('')).match(/([45])/); if(m) return Number(m[1]); if(/四/.test(row.join('')))return 4; if(/五/.test(row.join('')))return 5; } }
+    if(/四档|4\s*档|4档变速/.test(txt)&&!/五档|5\s*档/.test(txt)) return 4;
+    return 5;
+  }
+  // 以报告写出的 i₀ 和报告使用的档数重算一行指标；其余参数一律用内置标准参数（与学生页面填写无关）
+  function _calcForGT(i0,gt){
+    if(!(Number.isFinite(i0)&&i0>=2&&i0<=12))return null; // 防止 i₀=0 等异常值导致功率曲线循环无法结束
+    try{
+      const P=refP(gt);
+      const r=withRefState(()=>calcOneI0(i0,P));
+      const interp=(xs,ys,x)=>{const i=xs.findIndex(u=>u>=x);return i<0?NaN:(i===0?ys[0]:ys[i-1]+(ys[i]-ys[i-1])*(x-xs[i-1])/(xs[i]-xs[i-1]));};
+      const ua=r.vtArr.map(p=>p.ua), tt=r.vtArr.map(p=>p.t);
+      const t10=interp(ua,tt,10);
+      return {umax:r.umax,grade:r.maxGrade,t:r.t,init:r.vtArr[0].ua,t1070:r.t-t10,n60:r.n_at60,
+        q60:r.q60,q80:r.q80,qjb:r.qjb,kmL:100/r.q60,
+        feasUmax:r.umax>=98,feasGrade:r.maxGrade>=35,feasT:(r.t-t10)<=26};
+    }catch(e){ return null; }
+  }
+  const _tol={umax:x=>Math.max(0.05,Math.abs(x)*0.005),grade:x=>Math.max(0.05,Math.abs(x)*0.005),
+    t:x=>Math.max(0.03,Math.abs(x)*0.005),init:()=>0.1,t1070:x=>Math.max(0.1,Math.abs(x)*0.01),
+    n60:x=>Math.max(2,Math.abs(x)*0.01),q60:x=>Math.max(0.03,Math.abs(x)*0.005),
+    q80:x=>Math.max(0.03,Math.abs(x)*0.005),qjb:x=>Math.max(0.03,Math.abs(x)*0.005),kmL:x=>Math.max(0.03,Math.abs(x)*0.005)};
+  function _checkRow(row,cols,exp){
+    let pass=0,total=0;const bad=[];
+    for(const [k,c] of Object.entries(cols)){
+      if(c<0||!Number.isFinite(exp[k]))continue;
+      total++; const v=_cellNum(row[c]);
+      const ok=v!==null&&Math.abs(v-exp[k])<=_tol[k](exp[k])+1e-9;
+      if(ok)pass++; else bad.push(`${k}:报告${v===null?'未填':v}/重算${Number(exp[k].toFixed(3))}`);
+    }
+    return {frac:total?pass/total:0,total,bad};
+  }
+  function _mk(id,label,max,frac,ev){ const score=Math.round(Math.min(max,max*Math.max(0,Math.min(1,frac)))*10)/10;
+    return {id,label,max,score,review:false,checks:[{label,ok:frac>=1,pts:max,got:score}],evidence:(ev||[]).join('\n').slice(0,4000)}; }
+
+  function contentScoreV2(document){
+    const GT=_gearTypeFromDoc(document);
+    // 表1 动力性：i₀/最高车速/坡度/工具时间/(初速)/10至70/(n60)
+    const t1=_findTable(document,h=>h.some(x=>/最高车速/.test(x))&&h.some(x=>/坡度/.test(x))&&h.some(x=>/工具时间/.test(x)));
+    const t2=_findTable(document,h=>h.some(x=>/60.*100|60km\/h.*l/.test(x))&&h.some(x=>/六工况/.test(x)));
+    const t3=_findTable(document,h=>h.some(x=>/车速.*98|车速≥98|最高车速≥/.test(x))&&h.some(x=>/六工况/.test(x)));
+    const ev=[];
+    // —— 动力性表（满分 40）——
+    let dynFrac=0,dynN=0;
+    if(t1){ const h=_headers(t1),cols={umax:_col(h,/最高车速/),grade:_col(h,/坡度/),t:_col(h,/工具时间/),init:_col(h,/初速/),t1070:_col(h,/10至70/),n60:_col(h,/n在60|n60|60.*r\/?min/)};
+      for(const row of t1.rows.slice(1)){ const i0=_i0OfRow(row); if(i0===null)continue;
+        if(!row.slice(1).some(c=>_cellNum(c)!==null))continue; // 整行空（？？？）→ 不计入
+        const exp=_calcForGT(i0,GT); if(!exp){continue;}
+        const c=_checkRow(row,cols,exp); dynFrac+=c.frac; dynN++; if(c.bad.length)ev.push(`表1 i₀=${i0}: ${c.bad.join('；')}`);
+      }
+      if(dynN===0) ev.push('表1 未填入可识别的数据（均为占位符）。');
+    } else ev.push('未找到动力性表（表头应含“最高车速、坡度、工具时间”）。');
+    const dyn=dynN?dynFrac/dynN:0;
+    // —— 经济性表（满分 25）——
+    let ecoFrac=0,ecoN=0;
+    if(t2){ const h=_headers(t2),cols={q60:_col(h,/60.*100|60km\/h/),q80:_col(h,/80/),qjb:_col(h,/六工况/),kmL:_col(h,/km\/l/)};
+      for(const row of t2.rows.slice(1)){ const i0=_i0OfRow(row); if(i0===null)continue;
+        if(!row.slice(1).some(c=>_cellNum(c)!==null))continue;
+        const exp=_calcForGT(i0,GT); if(!exp)continue;
+        const c=_checkRow(row,cols,exp); ecoFrac+=c.frac; ecoN++; if(c.bad.length)ev.push(`表2 i₀=${i0}: ${c.bad.join('；')}`);
+      }
+      if(ecoN===0) ev.push('表2 未填入可识别的数据（均为占位符）。');
+    } else ev.push('未找到经济性表（表头应含“60…L/100…、六工况”）。');
+    const eco=ecoN?ecoFrac/ecoN:0;
+    // —— 约束筛选表（满分 10）——
+    let conFrac=0,conN=0;
+    if(t3){ const h=_headers(t3),uc=_col(h,/车速/),gc=_col(h,/坡度/),tc=_col(h,/10至70/),ac=_col(h,/全部满足/);
+      const yes=s=>/满足|是|y|✓|√/i.test(_nz(s))&&!/不满足|否/.test(_nz(s));
+      const no=s=>/不满足|否|n|×|✗/i.test(_nz(s));
+      for(const row of t3.rows.slice(1)){ const i0=_i0OfRow(row); if(i0===null)continue;
+        const cells=[uc,gc,tc,ac].map(c=>c>=0?_nz(row[c]):''); if(!cells.some(x=>x))continue;
+        const exp=_calcForGT(i0,GT); if(!exp)continue;
+        let p=0,tot=0; const judge=[[uc,exp.feasUmax],[gc,exp.feasGrade],[tc,exp.feasT],[ac,exp.feasUmax&&exp.feasGrade&&exp.feasT]];
+        for(const [c,want] of judge){ if(c<0)continue; const cell=_nz(row[c]); if(!cell)continue; tot++;
+          if((want&&yes(cell)&&!no(cell))||(!want&&no(cell)))p++; }
+        if(tot){ conFrac+=p/tot; conN++; }
+      }
+      if(conN===0) ev.push('表3 未填入可识别的判断（均为占位符）。');
+    } else ev.push('未找到约束筛选表（表头应含“车速≥98、六工况”）。');
+    const con=conN?conFrac/conN:0;
+
+    return [
+      _mk('dyn','动力性数据复现（表1）',45,dyn,ev.filter(x=>x.startsWith('表1')||x.includes('动力性'))),
+      _mk('eco','经济性数据复现（表2）',35,eco,ev.filter(x=>x.startsWith('表2')||x.includes('经济性'))),
+      _mk('con','约束筛选复现（表3）',20,con,ev.filter(x=>x.startsWith('表3')||x.includes('约束'))),
+    ];
+  }
+
+  function grade(document,benchmark){
+    const details=benchmark.metrics.map(m=>{
+      const observation=extract(document,m),tolerance=Math.max(m.absTol,Math.abs(m.value)*benchmark.relativeTolerance);
+      const error=observation.value===null?null:Math.abs(observation.value-m.value);
+      const pass=error!==null&&error<=tolerance+1e-9;
+      return {...m,observation,tolerance,error,score:pass?m.max:0,pass};
+    });
+    if(benchmark.scheme==='match-v2'){
+      // 全部 100 分由「按学生所用变速器逐行重算」得到：表1 45 + 表2 35 + 表3 20
+      const other=contentScoreV2(document);
+      const otherScore=Math.round(other.reduce((a,x)=>a+x.score,0)*10)/10;
+      return {details,other,dataScore:0,otherScore,scheme:'match-v2',dataMax:0,otherMax:100,
+        totalScore:otherScore,benchmarkId:benchmark.id};
+    }
+    const rawData=details.reduce((a,x)=>a+x.score,0);
+    const other=otherScore(document.text),otherTotal=other.reduce((a,x)=>a+x.score,0);
+    return {details,other,dataScore:Math.round(rawData*10)/10,otherScore:otherTotal,dataMax:80,otherMax:20,
+      totalScore:Math.round((rawData+otherTotal)*10)/10,benchmarkId:benchmark.id};
+  }
+  return {norm,numeric,fromText,docx,read,grade,extract,otherScore,contentScoreV2};
+})();
+const maxOf=g=>g&&g.scheme==='match-v2'
+  ?{data:0,other:100,dataName:'',otherName:'数据复现'}
+  :{data:80,other:20,dataName:'计算数据',otherName:'其余内容'};
+
+const LabAdapter = (()=>{
+ const num=id=>Number(document.getElementById(id)?.value);
+ const set=(id,value)=>{const e=document.getElementById(id);if(e)e.value=value;};
+ const interpolate=(xs,ys,x)=>{if(x<xs[0]||x>xs.at(-1))throw Error('指定车速超出计算曲线范围。');const i=xs.findIndex(u=>u>=x);return i===0?ys[0]:ys[i-1]+(ys[i]-ys[i-1])*(x-xs[i-1])/(xs[i]-xs[i-1]);};
+ function restore(){
+  if(LAB_EXPERIMENT===1){resetDef();calcAll();return;}
+  const values={p_m:3880,p_r:0.367,p_f:0.013,p_CdA:2.77,p_eta:LAB_EXPERIMENT===2?85:0.85,p_i0:5.83,p_nmin:600,p_nmax:4000,p_If:0.218,p_Iw1:1.798,p_Iw2:3.598,p_Qid:0.299,p_gamma:7.15,cy_Qid:0.299,cy_gamma:7.15,L_wb:3.2,a_cg:1.947,hg:0.9,accel_target:70,be_mode:'A',g5_0:5.56,g5_1:2.769,g5_2:1.644,g5_3:1.0,g5_4:0.793,g4_0:6.09,g4_1:3.09,g4_2:1.71,g4_3:1.0};
+  for(const [id,v] of Object.entries(values))set(id,v);set('gear_type',5);
+  if(LAB_EXPERIMENT===2){set('poly_deg',4);polyState.deg=4;buildPolyTable();fitFromBuiltin();loadPreset('jb_top');}
+  else{i0List=[5.17,5.43,5.83,6.17,6.33];resetEngineDefault();restoreBookPoly();onGearChange(false);buildI0List();set('start_gear',2);setAccelTarget(70);}
+ }
+ function snapshot(){
+  const values={};let parameters={};
+  if(LAB_EXPERIMENT===1){
+   calcAll();const r=RES;parameters=r.p;
+   Object.assign(values,{umax:r.uamax,ft1:r.Ft1/1000,grade:r.grade,angle:r.aRad*180/Math.PI,n2:r.N2/1000,phi:r.phi_need,time:r.vt_t.at(-1),delta1:r.gd[0].delta,n60:ua2n(60,r.p.ig.at(-1),r.p),fr60:Fr(60,r.p)});
+  }else if(LAB_EXPERIMENT===2){
+   recalcAll();const saved=JSON.parse(JSON.stringify(cycleState.segments));parameters=RESULTS.p;
+   try{
+    for(const speed of [40,60,80])for(const gi of [3,4]){const g=RESULTS.gear_curves[gi];if(!g)throw Error('当前基准要求五档变速器。');values[`fuel${gi}_${speed}`]=interpolate(g.ua_69,g.Qs_69,speed);}
+    loadPreset('jb_top');values.totalQbaseline=RESULTS.cycle_result.totalQ;values.cyclebaseline=RESULTS.cycle_result.Qs;
+    loadPreset('jb_sec');values.totalQsecondary=RESULTS.cycle_result.totalQ;values.cyclesecondary=RESULTS.cycle_result.Qs;
+   }finally{cycleState.segments=saved;buildCycleTable();recalcAll();}
+  }else{
+   if(num('accel_target')!==70)throw Error('请先将匹配实验目标设为70 km/h，再采集基准。');
+   runAll();parameters=getP();
+   for(const i0 of [5.17,5.43,5.83,6.17,6.33]){
+    const r=RESULTS.find(r=>Math.abs(r.i0-i0)<1e-7);if(!r)throw Error('需要保留Word示范的五个i₀候选值。');
+    if(!r.reached)throw Error(`i₀=${i0}未达到70 km/h，不能作为本任务基准。`);
+    const t10=interpolate(r.vtArr.map(p=>p.ua),r.vtArr.map(p=>p.t),10);
+    for(const [key,val] of Object.entries({umax:r.umax,grade:r.maxGrade,t:r.t,t10_70:r.t-t10,q60:r.q60,qjb:r.qjb}))values[`i${i0}_${key}`]=val;
+   }
+  }
+  if(Object.values(values).some(v=>!Number.isFinite(v)))throw Error('当前工具存在无效结果，请检查参数。');
+  return {values,parameters};
+ }
+ return {restore,snapshot};
+})();
+
+/* Shared course workflow, embedded into each portable HTML. */
+(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const clone=x=>JSON.parse(JSON.stringify(x)),KEY='vehicleTheoryLab.v1.';
+ const me=LAB_CONFIGS[LAB_EXPERIMENT];
+ const state={student:null,teacher:false,document:null,last:null,records:[],benchmarks:{},panel:'',reviewId:null,parseVersion:0,persist:true};
+ const get=(key,fallback)=>{try{const x=localStorage.getItem(KEY+key);return x?JSON.parse(x):fallback;}catch{return fallback;}};
+ function save(key,value){try{localStorage.setItem(KEY+key,JSON.stringify(value));return true;}catch{state.persist=false;return false;}}
+ const now=()=>new Date().toISOString();
+ const day=timestamp=>{const p=Object.fromEntries(new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(timestamp)).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`;};
+ const time=timestamp=>new Date(timestamp).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false});
+ const uid=()=>crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(36).slice(2)}`;
+ const number=n=>Number.isFinite(n)?Number(n.toFixed(4)).toString():'—';
+ function validIdentity(id,name){return /^\d{10}$/.test(id)&&name.length>=2&&name.length<=30&&!/[\\/:*?"<>|\x00-\x1f]/.test(name);}
+ async function digest(text){if(!crypto.subtle)throw Error('当前浏览器无法执行密码校验，请使用新版Edge或Chrome。');return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
+ function validateBenchmark(input,experiment){
+  const base=clone(LAB_CONFIGS[experiment]?.benchmark);if(!base||!input||!Array.isArray(input.metrics))throw Error('评分标准格式不正确。');
+  if(input.metrics.length!==base.metrics.length)throw Error('评分标准项目数与本实验不一致。');
+  const tol=Number(input.relativeTolerance);if(!Number.isFinite(tol)||tol<0||tol>0.05)throw Error('相对容差应在0%至5%之间。');
+  for(const metric of base.metrics){const item=input.metrics.find(x=>x.id===metric.id);if(!item||!Number.isFinite(item.value))throw Error('评分标准缺少有效的 '+metric.label);metric.value=item.value;}
+  base.relativeTolerance=tol;base.id=String(input.id||uid()).slice(0,100);base.title=String(input.title||'教师评分基准').slice(0,120);
+  base.source=String(input.source||'教师设置').slice(0,200);base.parameters=String(input.parameters||base.parameters).slice(0,3000);
+  return base;
+ }
+ function benchmark(experiment=LAB_EXPERIMENT){return clone(state.benchmarks[experiment]||LAB_CONFIGS[experiment].benchmark);}
+ function validDocument(doc){
+  if(!doc||typeof doc.text!=='string'||doc.text.length>1000000||doc.text.trim().length<30)throw Error('缺少有效的原始报告文本。');
+  if(!Array.isArray(doc.tables)||doc.tables.length>200)throw Error('报告表格数据不正确。');
+  const tables=doc.tables.map(t=>{
+   if(!Array.isArray(t.rows)||t.rows.length>500)throw Error('报告表格超过限制。');
+   return {rows:t.rows.map(r=>{if(!Array.isArray(r)||r.length>30)throw Error('报告列数超过限制。');return r.map(c=>String(c).slice(0,10000));})};
+  });
+  return {text:doc.text,lines:doc.text.split('\n'),tables,fileName:String(doc.fileName||'报告文本').slice(0,200)};
+ }
+ for(const id of [1,2,3]){try{const stored=get('benchmark'+id,null);if(stored)state.benchmarks[id]=validateBenchmark(stored,id);}catch{}}
+ // Stored records are local drafts; imported files are always regraded below.
+ const stored=get('records',[]);if(Array.isArray(stored))state.records=stored.filter(r=>[1,2,3].includes(r?.experiment)&&validIdentity(String(r.studentId),String(r.studentName||''))&&r.grading&&Array.isArray(r.grading.details)&&typeof r.submissionId==='string'&&Number.isFinite(r.grading.totalScore)&&r.grading.totalScore>=0&&r.grading.totalScore<=100);
+ try{const s=JSON.parse(sessionStorage.getItem(KEY+'student')||'null');if(s&&validIdentity(s.id,s.name))state.student=s;}catch{}
+
+ const app=document.createElement('div');app.id='lab-app';
+ const original=[...document.body.children].filter(e=>!['SCRIPT','STYLE'].includes(e.tagName));
+ document.body.insertBefore(app,document.body.firstChild);original.forEach(e=>app.appendChild(e));document.body.classList.add('lab-enhanced');
+ const toolbar=document.createElement('div');toolbar.className='lab lab-toolbar';toolbar.id='lab-toolbar';document.body.insertBefore(toolbar,app);
+ const overlay=document.createElement('div');overlay.id='lab-overlay';overlay.className='lab lab-overlay';overlay.hidden=true;overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-labelledby','lab-dialog-title');document.body.appendChild(overlay);
+ let previousOverflow='',previousFocus=null;
+ function renderToolbar(){
+  toolbar.innerHTML=`<div class="lab-identity"><strong>${esc(me.title)}</strong>　${state.student?`${esc(state.student.name)}　${esc(state.student.id)}`:'尚未登记学生身份'}</div>
+   <button type="button" data-lab-action="report">实验报告评阅</button><button type="button" data-lab-action="teacher">教师管理</button><button type="button" data-lab-action="switch">${state.student?'切换学生':'学生登录'}</button>`;
+ }
+ function showPanel(panel,content,small=false){
+  if(overlay.hidden){previousFocus=document.activeElement;previousOverflow=document.body.style.overflow;}
+  state.panel=panel;overlay.innerHTML=`<div class="lab-dialog${small?' lab-small':''}" tabindex="-1">${content}</div>`;
+  overlay.hidden=false;app.inert=true;toolbar.inert=true;document.body.style.overflow='hidden';
+  requestAnimationFrame(()=>{(overlay.querySelector('input:not([type=file]),textarea,button')||overlay.firstElementChild).focus();});
+ }
+ function closePanel(){
+  if(!state.student){showLogin();return;}
+  overlay.hidden=true;app.inert=false;toolbar.inert=false;document.body.style.overflow=previousOverflow;state.panel='';previousFocus?.focus?.();
+  window.dispatchEvent(new Event('resize'));
+ }
+ function heading(title,close=true){return `<div class="lab-heading"><h2 id="lab-dialog-title">${esc(title)}</h2>${close?'<button type="button" data-lab-action="close" aria-label="关闭面板">关闭</button>':''}</div>`;}
+ function status(text,id='lab-status'){const target=$(id);if(target)target.textContent=text;}
+ function showLogin(){
+  showPanel('login',`${heading('学生登录',false)}<p>${esc(me.title)}。登记学号和姓名后进入工具，完成实验后上传报告评阅。</p>
+   <form id="lab-login-form"><label for="lab-student-id">学号（10位数字）</label><input id="lab-student-id" inputmode="numeric" autocomplete="username" maxlength="10" required value="${esc(state.student?.id||'')}">
+   <label for="lab-student-name">姓名</label><input id="lab-student-name" autocomplete="name" maxlength="30" required value="${esc(state.student?.name||'')}">
+   <div class="lab-status" id="lab-status" role="status"></div><div class="lab-actions"><button class="lab-primary" type="submit">进入实验</button><button type="button" data-lab-action="teacher">教师入口</button></div></form>
+   <p class="lab-muted">身份用于报告署名。管理与评分在本浏览器运行；教师通过导入学生TXT汇总结果。</p>`,true);
+ }
+ function login(){
+  const id=$('lab-student-id').value.trim(),name=$('lab-student-name').value.trim();
+  if(!validIdentity(id,name)){status('请填写10位数字学号和2至30个字符的姓名，姓名不得含文件名禁用符号。');return;}
+  state.student={id,name};state.document=null;state.last=null;try{sessionStorage.setItem(KEY+'student',JSON.stringify(state.student));}catch{}
+  renderToolbar();closePanel();
+ }
+ function showTeacherLogin(){
+  if(state.teacher){showTeacher();return;}
+  showPanel('teacher-login',`${heading('教师登录')}<p>登录后可以设置评分基准、批量导入TXT、复核成绩和导出统计。</p><form id="lab-teacher-form"><label for="lab-password">教师密码</label><input id="lab-password" type="password" autocomplete="current-password" required><div id="lab-status" class="lab-status" role="status"></div><div class="lab-actions"><button type="submit" class="lab-primary">登录教师管理</button><button type="button" data-lab-action="close">返回</button></div></form>`,true);
+ }
+ async function teacherLogin(){
+  const password=$('lab-password').value;status('正在验证…');
+  if(await digest(password)!==get('teacherPasswordHash',LAB_PASSWORD_HASH)){status('教师密码错误，请重试。');return;}
+  state.teacher=true;showTeacher();
+ }
+ function showReport(){
+  if(!state.student){showLogin();return;}
+  const b=benchmark(),isMatch=b.scheme==='match-v2';
+  showPanel('report',`${heading(me.title+' 报告评阅')}
+   <p>当前学生：<b>${esc(state.student.id)}　${esc(state.student.name)}</b>。${isMatch?'全部100分由工具按你所用变速器逐行重算得到。':'计算数据80分，其余内容20分。'}</p>
+   <p class="lab-muted">相对容差${number(b.relativeTolerance*100)}%，并考虑Word显示位数的舍入。你在页面上改动参数不会改变评分标准。</p>
+   <details><summary>查看计分规则</summary><p>系统用教师设定的标准参数，按你报告中填写的 i₀ 和所用变速器逐行重算，再与报告数据比对。页面上的参数需要你自己填写；参数填错，报告数据就会与标准结果不符而失分。</p><p>数据按标签、档位、i₀和表头逐项比对；容差内得该项满分，超差、未识别或多处不一致先记0分，交教师复核。${isMatch?'数据复现分：动力性表45分、经济性表35分、约束表20分，用学生填写的 i₀ 和所用变速器逐行重算；占位符无法重算则不得分。':'其余20分按五项各4分规则初评，教师可调整。'}</p></details>
+   <label for="lab-report-file">上传实验报告（DOCX / PDF / TXT，最大20 MB）</label><input id="lab-report-file" type="file" accept=".docx,.pdf,.txt">
+   <label for="lab-report-text">报告提取文本或直接粘贴正文（保留表格列，建议直接上传Word）</label><textarea id="lab-report-text" rows="7" placeholder="选择文件后自动显示正文，也可以粘贴含表头和单位的报告。">${esc(state.document?.text||'')}</textarea>
+   <p class="lab-muted">DOCX和TXT在浏览器内读取。PDF首次使用需加载解析库；扫描PDF请改用原始Word。规则初评可检查文字证据，排版与论证质量由教师复核。</p>
+   <div class="lab-actions"><button class="lab-primary" type="button" data-lab-action="grade" id="lab-grade">开始评阅</button><button type="button" data-lab-action="download" id="lab-download" ${state.last?'':'disabled'}>下载评阅结果 TXT</button></div>
+   <div class="lab-status" id="lab-status" role="status"></div><div id="lab-grade-result"></div>`);
+  if(state.last)renderResult(state.last);
+ }
+ function invalidate(){state.last=null;if($('lab-download'))$('lab-download').disabled=true;if($('lab-grade-result'))$('lab-grade-result').replaceChildren();}
+ async function fileSelected(){
+  const file=$('lab-report-file').files[0];if(!file)return;invalidate();state.document=null;const version=++state.parseVersion;
+  $('lab-grade').disabled=true;status('正在读取 '+file.name+'…');
+  try{const doc=await LabGrading.read(file);if(version!==state.parseVersion||state.panel!=='report')return;
+   state.document=validDocument(doc);$('lab-report-text').value=doc.text;status(`已读取 ${file.name}，识别 ${doc.tables.length} 个表格，${doc.text.length} 个字符。请点击开始评阅。`);
+  }catch(e){if(version===state.parseVersion){$('lab-report-text').value='';status(e.message);}}
+  finally{if(version===state.parseVersion&&$('lab-grade'))$('lab-grade').disabled=false;}
+ }
+ function persistRecords(){const ok=save('records',state.records);return ok?'记录已保存到当前浏览器。':'浏览器存储空间不足，记录暂存于本页内存；关闭前请下载TXT或导出统计。';}
+ function newRecord(doc,experiment=LAB_EXPERIMENT,identity=state.student,id=uid()){
+  const b=benchmark(experiment);return {schema:'vehicle-lab-report/v1',submissionId:id,experiment,experimentTitle:LAB_CONFIGS[experiment].title,studentId:identity.id,studentName:identity.name,timestamp:now(),status:'自动初评',document:doc,benchmark:b,grading:LabGrading.grade(doc,b),teacherNote:'',reviewedAt:null};
+ }
+ function doGrade(){
+  if(!state.student)throw Error('请先登记学生身份。');
+  const text=$('lab-report-text').value.trim();if(text.length<30)throw Error('请先上传报告或填写完整正文。');
+  const doc=validDocument(state.document?.text.trim()===text?state.document:LabGrading.fromText(text));
+  const ids=[...text.matchAll(/(?:学号\s*[:：]?\s*)(\d{10})/g)].map(x=>x[1]);
+  if(ids.length&&ids.some(id=>id!==state.student.id))throw Error('报告内学号与当前登录学号不一致，请核对身份或报告。');
+  state.document=doc;const record=newRecord(doc);state.last=record;state.records.push(record);
+  renderResult(record);$('lab-download').disabled=false;status(`评阅完成。${persistRecords()}可下载TXT提交教师。`);
+ }
+ function scoreBlock(record){const g=record.grading;return `<div class="lab-score"><strong>${number(g.totalScore)} / 100</strong>${g.scheme==='match-v2'?'':`<span>${maxOf(g).dataName} ${number(g.dataScore)} / ${maxOf(g).data}</span>`}<span>${maxOf(g).otherName} ${number(g.otherScore)} / ${maxOf(g).other}</span><span>${esc(record.status)}</span></div>`;}
+ function detailsTable(record,editable=false){
+  return `<div class="lab-scroll"><table><thead><tr><th>评分指标</th><th>基准值</th><th>报告识别值</th><th>允许误差</th><th>得分</th><th>识别依据</th></tr></thead><tbody>${record.grading.details.map((m,i)=>`<tr><td>${esc(m.label)}<br><span class="lab-muted">${esc(m.unit)}</span></td><td class="lab-num">${number(m.value)}</td><td class="lab-num ${m.pass?'lab-good':'lab-bad'}">${m.observation.value===null?esc(m.observation.status):number(m.observation.value)}</td><td class="lab-num">±${number(m.tolerance)}</td><td class="lab-num">${editable?`<input class="lab-field-score" data-lab-data-score="${i}" type="number" min="0" max="${m.max}" step="0.1" value="${m.score}" aria-label="${esc(m.label)}得分">`:`${number(m.score)}`} / ${m.max}</td><td><details><summary>原文证据</summary><pre>${esc(m.observation.evidence)}</pre></details></td></tr>`).join('')}</tbody></table></div>`;
+ }
+ function otherTable(record,editable=false){return `<div class="lab-scroll"><table><thead><tr><th>${maxOf(record.grading).otherName}</th><th>得分</th><th>规则初评依据</th></tr></thead><tbody>${record.grading.other.map((r,i)=>`<tr><td>${esc(r.label)}</td><td>${editable?`<input class="lab-field-score" data-lab-other-score="${i}" type="number" min="0" max="${r.max??4}" step="0.1" value="${r.score}" aria-label="${esc(r.label)}得分">`:r.score} / ${r.max??4}</td><td>${r.checks.map(c=>`${c.ok?'✓':'○'} ${esc(c.label)}`).join('；')}</td></tr>`).join('')}</tbody></table></div>`;}
+ function renderResult(record){$('lab-grade-result').innerHTML=`${scoreBlock(record)}${record.grading.scheme==='match-v2'?'':`<h3>${maxOf(record.grading).dataName} ${maxOf(record.grading).data}分</h3>${detailsTable(record)}`}<h3>${maxOf(record.grading).otherName} ${maxOf(record.grading).other}分</h3>${otherTable(record)}<p class="lab-muted">评分标准版本：${esc(record.benchmark.id)}。未识别项不等于内容一定错误，请教师查看原文证据复核。</p>`;}
+ function safeFilePart(s){return String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/g,'');}
+ function filename(record){return `${safeFilePart(record.studentId)}-${safeFilePart(record.studentName)}-${LAB_CONFIGS[record.experiment].title}-${day(record.reviewedAt||record.timestamp)}-${number(record.grading.totalScore)}.TXT`;}
+ function downloadFile(text,name,type='text/plain;charset=utf-8'){
+  const url=URL.createObjectURL(new Blob(['\uFEFF',text],{type})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+ }
+ function reportText(record){
+  const g=record.grading;const rows=[record.experimentTitle+' 实验报告评阅结果','学号：'+record.studentId,'姓名：'+record.studentName,'评阅日期：'+time(record.reviewedAt||record.timestamp)+'（北京时间）','评阅状态：'+record.status,
+   `总分：${number(g.totalScore)}/100；${g.scheme==='match-v2'?'':`${maxOf(g).dataName}：${number(g.dataScore)}/${maxOf(g).data}；`}${maxOf(g).otherName}：${number(g.otherScore)}/${maxOf(g).other}`,
+   '基准：'+record.benchmark.title,'基准版本：'+record.benchmark.id,'参考Word：'+record.benchmark.source,'给定参数：'+record.benchmark.parameters,
+   `容差：相对${number(record.benchmark.relativeTolerance*100)}%，逐项结合显示精度的舍入容差。`,'','【计算数据逐项评阅】'];
+  for(const m of g.details){rows.push(`${m.label} [${m.unit}]：基准${number(m.value)}；识别${m.observation.value===null?m.observation.status:number(m.observation.value)}；允许误差±${number(m.tolerance)}；得分${number(m.score)}/${m.max}`,'证据：'+m.observation.evidence);}
+  rows.push('','【'+maxOf(g).otherName+' '+maxOf(g).other+'分】');for(const item of g.other)rows.push(`${item.label}：${number(item.score)}/${item.max??4}；${item.checks.map(c=>(c.ok?'符合':'未检出')+' '+c.label).join('；')}`);
+  rows.push('','【教师复核意见】',record.teacherNote||'尚无人工复核意见。','本结果为浏览器规则初评或教师复核记录。教师导入后可按本机评分标准重新核算。',
+   '','【原始报告提取文本】',record.document.text,'','--- SYSTEM DATA BEGIN ---',JSON.stringify(record),'--- SYSTEM DATA END ---');
+  return rows.join('\r\n');
+ }
+ function downloadRecord(record){if(!record)throw Error('请先完成评阅。');downloadFile(reportText(record),filename(record));}
+
+ function selectedRecords(){
+  const filter=$('lab-filter')?.value.trim().toLowerCase()||'',experiment=Number($('lab-filter-experiment')?.value||0),mode=$('lab-stat-mode')?.value||'latest';
+  let records=state.records.filter(r=>(!experiment||r.experiment===experiment)&&(!filter||`${r.studentId} ${r.studentName}`.toLowerCase().includes(filter)));
+  if(mode!=='all'){const map=new Map();for(const r of records){const key=r.experiment+'|'+r.studentId;const old=map.get(key);if(!old||(mode==='best'?r.grading.totalScore>old.grading.totalScore:new Date(r.timestamp)>new Date(old.timestamp)))map.set(key,r);}records=[...map.values()];}
+  return records.sort((a,b)=>a.experiment-b.experiment||a.studentId.localeCompare(b.studentId)||b.timestamp.localeCompare(a.timestamp));
+ }
+ function showTeacher(){
+  if(!state.teacher){showTeacherLogin();return;}
+  showPanel('teacher',`${heading('教师管理与成绩复核')}
+   <p>可管理三个实验的本机记录，批量导入学生提交的评阅TXT，并逐项复核。导入时根据随附原始正文与本机基准重算，文件中的自报分数不直接计入成绩。</p>
+   <div class="lab-actions"><button type="button" data-lab-action="settings">评分基准与密码</button><button type="button" data-lab-action="restore">在页面填入标准参数（教师自检）</button><button type="button" data-lab-action="logout-teacher">退出教师身份</button></div>
+   <label for="lab-import">批量导入学生TXT（可多选）</label><input id="lab-import" type="file" multiple accept=".txt,.TXT">
+   <div class="lab-grid"><label for="lab-filter">按学号或姓名筛选<input id="lab-filter" placeholder="输入学号或姓名"></label><label for="lab-filter-experiment">实验<select id="lab-filter-experiment"><option value="0">全部实验</option>${[1,2,3].map(i=>`<option value="${i}">${esc(LAB_CONFIGS[i].title)}</option>`).join('')}</select></label></div>
+   <label for="lab-stat-mode">统计口径<select id="lab-stat-mode"><option value="latest">每名学生每个实验的最新提交</option><option value="best">每名学生每个实验的最高分</option><option value="all">全部提交记录</option></select></label>
+   <div class="lab-status" id="lab-status" role="status"></div><div id="lab-statistics"></div>
+   <div class="lab-actions"><button type="button" data-lab-action="csv">导出当前统计 CSV</button><button type="button" data-lab-action="clear">清空本机成绩记录</button></div><p class="lab-muted">学生报告不会自动汇集到其他电脑；跨设备请收集TXT后导入。修改评分标准后，已有成绩保留当时基准，复核时可重新计算。</p>`);
+  renderStatistics();
+ }
+ function renderStatistics(){
+  if(!state.teacher||!$('lab-statistics'))return;const rows=selectedRecords(),scores=rows.map(r=>r.grading.totalScore),average=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:0;
+  $('lab-statistics').innerHTML=`<div class="lab-stat-grid"><div class="lab-stat"><b>${new Set(rows.map(r=>r.studentId)).size}</b><span>学生人数</span></div><div class="lab-stat"><b>${rows.length}</b><span>当前统计记录</span></div><div class="lab-stat"><b>${number(average)}</b><span>平均分</span></div><div class="lab-stat"><b>${scores.length?number(Math.max(...scores)):'—'}</b><span>最高分</span></div></div>
+   <div class="lab-scroll"><table><thead><tr><th>学号</th><th>姓名</th><th>实验</th><th>${state.records[0]&&state.records[0].grading.scheme==='match-v2'?'（重算）':'数据80'}</th><th>${state.records[0]?maxOf(state.records[0].grading).otherName:'其余'}</th><th>总分</th><th>日期与状态</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.studentId)}</td><td>${esc(r.studentName)}</td><td>${esc(r.experimentTitle)}</td><td>${number(r.grading.dataScore)}</td><td>${number(r.grading.otherScore)}</td><td><b>${number(r.grading.totalScore)}</b></td><td>${esc(time(r.timestamp))}<br>${esc(r.status)}</td><td><button type="button" data-lab-action="review" data-id="${esc(r.submissionId)}">复核</button></td></tr>`).join('')||'<tr><td colspan="8">暂无记录，请导入学生TXT或完成本机报告评阅。</td></tr>'}</tbody></table></div>`;
+ }
+ async function importFiles(){
+  if(!state.teacher)throw Error('请先登录教师管理。');const files=[...$('lab-import').files];let loaded=0,duplicates=0;const errors=[];
+  status('正在读取并重新评阅…');
+  for(const file of files){try{
+   if(file.size>8*1024*1024)throw Error('文件超过8 MB');
+   const text=(await file.text()).replace(/^\uFEFF/,''),begin='--- SYSTEM DATA BEGIN ---',end='--- SYSTEM DATA END ---';
+   let start=text.lastIndexOf('\n'+begin);start=start>=0?start+1:(text.startsWith(begin)?0:-1);const finish=text.lastIndexOf('\n'+end);
+   if(start<0||finish<start)throw Error('缺少本工具的评分数据段');
+   const raw=JSON.parse(text.slice(start+begin.length,finish).trim());if(raw.schema!=='vehicle-lab-report/v1'||![1,2,3].includes(raw.experiment)||!validIdentity(String(raw.studentId),String(raw.studentName||'')))throw Error('实验类型或学生身份不正确');
+   const id=String(raw.submissionId||'');if(!/^[a-zA-Z0-9-]{8,100}$/.test(id))throw Error('记录编号不正确');
+   if(state.records.some(r=>r.submissionId===id)){duplicates++;continue;}
+   const doc=validDocument(raw.document),record=newRecord(doc,raw.experiment,{id:String(raw.studentId),name:raw.studentName},id);
+   if(Number.isFinite(Date.parse(raw.timestamp)))record.timestamp=new Date(raw.timestamp).toISOString();
+   record.status='导入重算 待复核';record.importedAt=now();record.teacherNote=raw.teacherNote?'原文件复核备注（需重新确认）：'+String(raw.teacherNote).slice(0,3000):'';
+   state.records.push(record);loaded++;
+  }catch(e){errors.push(file.name+'：'+e.message);}}
+  const saved=persistRecords();renderStatistics();status(`成功导入并重算${loaded}份，重复${duplicates}份，失败${errors.length}份。${saved}${errors.length?'\n'+errors.join('\n'):''}`);
+  $('lab-import').value='';
+ }
+ function showReview(id){
+  if(!state.teacher)throw Error('请先登录教师管理。');const record=state.records.find(r=>r.submissionId===id);if(!record)throw Error('未找到记录。');state.reviewId=id;
+  showPanel('review',`${heading('教师复核 '+record.studentId+' '+record.studentName)}<p>${esc(record.experimentTitle)}；评分基准：${esc(record.benchmark.title)}（${esc(record.benchmark.id)}）</p>${scoreBlock(record)}
+   ${record.grading.scheme==='match-v2'?'':`<h3>${maxOf(record.grading).dataName} ${maxOf(record.grading).data}分 可逐项调整</h3>${detailsTable(record,true)}`}<h3>${maxOf(record.grading).otherName} ${maxOf(record.grading).other}分</h3>${otherTable(record,true)}
+   <label for="lab-review-note">教师复核意见（调整分数时必填）</label><textarea id="lab-review-note" rows="3">${esc(record.teacherNote||'')}</textarea>
+   <div class="lab-actions"><button class="lab-primary" type="button" data-lab-action="save-review">保存教师复核</button><button type="button" data-lab-action="download-review">下载此记录 TXT</button><button type="button" data-lab-action="regrade">按当前教师基准重算</button><button type="button" data-lab-action="teacher-list">返回成绩表</button></div>
+   <div class="lab-status" id="lab-status" role="status"></div><details><summary>查看提取的报告原文</summary><pre>${esc(record.document.text)}</pre></details>`);
+ }
+ function saveReview(){
+  if(!state.teacher)throw Error('请先登录教师管理。');const r=state.records.find(r=>r.submissionId===state.reviewId);if(!r)throw Error('记录不存在。');
+  const dataInputs=[...overlay.querySelectorAll('[data-lab-data-score]')],otherInputs=[...overlay.querySelectorAll('[data-lab-other-score]')];
+  if([...dataInputs,...otherInputs].some(e=>e.value.trim()===''))throw Error('请填写每一项复核得分。');
+  const data=dataInputs.map(e=>Number(e.value)),other=otherInputs.map(e=>Number(e.value));
+  if(data.some((x,i)=>!Number.isFinite(x)||x<0||x>r.grading.details[i].max)||other.some((x,i)=>!Number.isFinite(x)||x<0||x>(r.grading.other[i].max??4)))throw Error('复核分数超出本项允许范围。');
+  const changed=data.some((x,i)=>x!==r.grading.details[i].score)||other.some((x,i)=>x!==r.grading.other[i].score),note=$('lab-review-note').value.trim();
+  if(changed&&!note)throw Error('调整分数时请填写复核依据。');
+  r.grading.details.forEach((x,i)=>x.score=Math.round(data[i]*10)/10);r.grading.other.forEach((x,i)=>x.score=Math.round(other[i]*10)/10);
+  r.grading.dataScore=r.grading.scheme==='match-v2'?0:Math.round(data.reduce((a,b)=>a+b,0)*10)/10;r.grading.otherScore=Math.round(other.reduce((a,b)=>a+b,0)*10)/10;r.grading.totalScore=Math.round((r.grading.dataScore+r.grading.otherScore)*10)/10;
+  r.teacherNote=note;r.status='教师已复核';r.reviewedAt=now();if(state.last?.submissionId===r.submissionId)state.last=r;
+  const saved=persistRecords();showReview(r.submissionId);status('教师复核已保存。'+saved);
+ }
+ function showSettings(){
+  if(!state.teacher)throw Error('请先登录教师管理。');const b=benchmark();
+  showPanel('settings',`${heading(me.title+' 评分设置')}<p>${(state.records.find(r=>r.grading.scheme==='match-v2'))?'全部100分由工具按学生所用变速器重算，无固定基准表。':'计算数据固定80分，其余五项各4分。'}可修改参考值与容差；已有记录保留其评分版本。</p>
+   <label for="lab-benchmark-title">评分标准名称</label><input id="lab-benchmark-title" value="${esc(b.title)}">
+   <label for="lab-tolerance">相对容差 百分数（0至5）</label><input id="lab-tolerance" type="number" min="0" max="5" step="0.1" value="${number(b.relativeTolerance*100)}">
+   <p class="lab-muted">来源：${esc(b.source)}；${esc(b.parameters)}</p>
+   <div class="lab-scroll"><table><thead><tr><th>指标</th><th>单位</th><th>满分</th><th>参考值</th></tr></thead><tbody>${b.metrics.map((m,i)=>`<tr><td>${esc(m.label)}</td><td>${esc(m.unit)}</td><td>${m.max}</td><td><input data-lab-benchmark="${i}" type="number" step="any" value="${m.value}" aria-label="${esc(m.label)}参考值"></td></tr>`).join('')}</tbody></table></div>
+   <div class="lab-actions"><button class="lab-primary" type="button" data-lab-action="save-settings">保存评分标准</button><button type="button" data-lab-action="capture">以当前工具计算值设为基准</button><button type="button" data-lab-action="reset-benchmark">恢复Word示范基准</button><button type="button" data-lab-action="export-benchmark">导出标准 JSON</button></div>
+   <label for="lab-benchmark-import">导入本实验评分标准 JSON</label><input id="lab-benchmark-import" type="file" accept=".json">
+   <h3>修改教师密码</h3><form id="lab-password-form"><div class="lab-grid"><label for="lab-old-password">当前密码<input id="lab-old-password" type="password" autocomplete="current-password" required></label><label for="lab-new-password">新密码（至少8个字符）<input id="lab-new-password" type="password" autocomplete="new-password" minlength="8" required></label></div><div class="lab-actions"><button type="submit">保存新密码</button><button type="button" data-lab-action="teacher-list">返回管理</button></div></form><div class="lab-status" id="lab-status" role="status"></div>`);
+ }
+ function saveSettings(){
+  if(!state.teacher)throw Error('请先登录教师管理。');const b=benchmark();b.title=$('lab-benchmark-title').value.trim()||'教师评分标准';b.relativeTolerance=Number($('lab-tolerance').value)/100;
+  [...overlay.querySelectorAll('[data-lab-benchmark]')].forEach((e,i)=>{if(e.value.trim()==='')throw Error('参考值不能为空。');b.metrics[i].value=Number(e.value);});
+  b.id='teacher-'+LAB_EXPERIMENT+'-'+uid();b.source='教师设置；基于'+b.source;
+  state.benchmarks[LAB_EXPERIMENT]=validateBenchmark(b,LAB_EXPERIMENT);const saved=save('benchmark'+LAB_EXPERIMENT,state.benchmarks[LAB_EXPERIMENT]);state.last=null;showSettings();status(saved?'新评分标准已保存。':'标准仅在本页有效，浏览器未能持久保存，请导出JSON。');
+ }
+ async function changePassword(){
+  if(!state.teacher)throw Error('请先登录教师管理。');
+  if(await digest($('lab-old-password').value)!==get('teacherPasswordHash',LAB_PASSWORD_HASH))throw Error('当前教师密码不正确。');
+  const next=$('lab-new-password').value;if(next.length<8)throw Error('新密码至少8个字符。');
+  if(!save('teacherPasswordHash',await digest(next)))throw Error('浏览器未能保存新密码，密码未更改。');
+  $('lab-password-form').reset();status('教师密码已修改，保存在当前浏览器来源下。');
+ }
+ function exportCsv(){
+  if(!state.teacher)throw Error('请先登录教师管理。');
+  const cell=v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
+  const rows=[['学号','姓名','实验','（重算）','复现得分','总分100','北京时间','状态','基准版本','教师意见'],...selectedRecords().map(r=>[r.studentId,r.studentName,r.experimentTitle,r.grading.dataScore,r.grading.otherScore,r.grading.totalScore,time(r.timestamp),r.status,r.benchmark.id,r.teacherNote])];
+  downloadFile(rows.map(r=>r.map(cell).join(',')).join('\r\n'),'汽车理论实验成绩-'+day(now())+'.csv','text/csv;charset=utf-8');
+ }
+ async function action(action,button){
+  switch(action){
+   case 'report':showReport();break;
+   case 'teacher':showTeacherLogin();break;
+   case 'switch':state.parseVersion++;state.student=null;state.document=null;state.last=null;try{sessionStorage.removeItem(KEY+'student');}catch{}renderToolbar();showLogin();break;
+   case 'close':state.parseVersion++;closePanel();break;
+   case 'restore':if(!state.teacher)throw Error('请先登录教师管理。');LabAdapter.restore();status('已在页面填入标准参数，关闭本面板可查看结果。学生打开本文件时参数仍为空白。');break;
+   case 'grade':doGrade();break;
+   case 'download':downloadRecord(state.last);break;
+   case 'logout-teacher':state.teacher=false;closePanel();break;
+   case 'teacher-list':showTeacher();break;
+   case 'settings':showSettings();break;
+   case 'review':showReview(button.dataset.id);break;
+   case 'save-review':saveReview();break;
+   case 'download-review':if(!state.teacher)throw Error('请先登录教师管理。');saveReview();downloadRecord(state.records.find(r=>r.submissionId===state.reviewId));break;
+   case 'regrade':{if(!state.teacher)throw Error('请先登录教师管理。');const r=state.records.find(r=>r.submissionId===state.reviewId);r.benchmark=benchmark(r.experiment);r.grading=LabGrading.grade(r.document,r.benchmark);r.status='重新初评 待复核';r.reviewedAt=null;persistRecords();showReview(r.submissionId);status('已按本机当前基准重新核算，原人工分数已替换。');break;}
+   case 'csv':exportCsv();break;
+   case 'clear':if(!state.teacher)throw Error('请先登录教师管理。');if(confirm('确定清空当前浏览器中三个实验的全部成绩记录？已下载的TXT不会删除。')){state.records=[];state.last=null;persistRecords();renderStatistics();status('本机成绩记录已清空。');}break;
+   case 'save-settings':saveSettings();break;
+   case 'capture':{if(!state.teacher)throw Error('请先登录教师管理。');const snap=LabAdapter.snapshot(),b=benchmark();b.metrics.forEach(m=>m.value=snap.values[m.id]);b.title='教师当前工具基准 '+day(now());b.id='live-'+uid();b.source='当前工具计算';b.parameters=JSON.stringify(snap.parameters);state.benchmarks[LAB_EXPERIMENT]=validateBenchmark(b,LAB_EXPERIMENT);save('benchmark'+LAB_EXPERIMENT,state.benchmarks[LAB_EXPERIMENT]);state.last=null;showSettings();status('已采集并保存当前工具基准。与Word基准的差异现由本标准决定。');break;}
+   case 'reset-benchmark':if(!state.teacher)throw Error('请先登录教师管理。');state.benchmarks[LAB_EXPERIMENT]=clone(me.benchmark);save('benchmark'+LAB_EXPERIMENT,me.benchmark);state.last=null;showSettings();status('已恢复与Word示范一致的评分基准。');break;
+   case 'export-benchmark':if(!state.teacher)throw Error('请先登录教师管理。');downloadFile(JSON.stringify({schema:'vehicle-lab-benchmark/v1',experiment:LAB_EXPERIMENT,benchmark:benchmark()},null,2),me.title+'-评分标准.json','application/json;charset=utf-8');break;
+  }
+ }
+ const guard=fn=>Promise.resolve().then(fn).catch(e=>{console.error(e);const target=$('lab-status');if(!overlay.hidden&&target)target.textContent=e.message;else alert(e.message);});
+ document.addEventListener('click',event=>{const button=event.target.closest('[data-lab-action]');if(button)guard(()=>action(button.dataset.labAction,button));});
+ document.addEventListener('submit',event=>{
+  const handlers={'lab-login-form':login,'lab-teacher-form':teacherLogin,'lab-password-form':changePassword};
+  if(handlers[event.target.id]){event.preventDefault();guard(handlers[event.target.id]);}
+ });
+ document.addEventListener('input',event=>{
+  if(event.target.id==='lab-report-text'){state.parseVersion++;state.document=null;invalidate();if($('lab-grade'))$('lab-grade').disabled=false;status('报告文本已修改，请重新评阅。');}
+  if(event.target.id==='lab-filter')renderStatistics();
+ });
+ document.addEventListener('change',event=>{
+  if(event.target.id==='lab-report-file')guard(fileSelected);
+  if(event.target.id==='lab-import')guard(importFiles);
+  if(['lab-filter-experiment','lab-stat-mode'].includes(event.target.id))renderStatistics();
+  if(event.target.id==='lab-benchmark-import')guard(async()=>{
+   if(!state.teacher)throw Error('请先登录教师管理。');const file=event.target.files[0];if(!file)return;if(file.size>200000)throw Error('评分标准文件过大。');
+   const raw=JSON.parse((await file.text()).replace(/^\uFEFF/,''));if(raw.schema!=='vehicle-lab-benchmark/v1'||raw.experiment!==LAB_EXPERIMENT)throw Error('该评分标准不属于当前实验。');
+   state.benchmarks[LAB_EXPERIMENT]=validateBenchmark(raw.benchmark,LAB_EXPERIMENT);save('benchmark'+LAB_EXPERIMENT,state.benchmarks[LAB_EXPERIMENT]);state.last=null;showSettings();status('评分标准已导入。');
+  });
+ });
+ overlay.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();if(state.panel!=='login')closePanel();}
+  if(event.key==='Tab'){
+   const focusable=[...overlay.querySelectorAll('button,input,select,textarea,summary,[tabindex="0"]')].filter(e=>!e.disabled&&e.getClientRects().length);
+   if(!focusable.length)return;const first=focusable[0],last=focusable.at(-1);
+   if(event.shiftKey&&document.activeElement===first){last.focus();event.preventDefault();}else if(!event.shiftKey&&document.activeElement===last){first.focus();event.preventDefault();}
+  }
+ });
+ window.VehicleLab={get lastResult(){return state.last?clone(state.last):null;},getBenchmark:benchmark,gradeDocument:(doc,b=benchmark())=>LabGrading.grade(validDocument(doc),b),extractReport:LabGrading.read,fromText:LabGrading.fromText,filename,reportText,get experiment(){return LAB_EXPERIMENT;}};
+ renderToolbar();
+ const pageTitles={1:'实验1 汽车动力性仿真',2:'实验2 汽车经济性仿真',3:'实验3 动力性与经济性匹配'};
+ document.title=pageTitles[LAB_EXPERIMENT]+' · 学生实验与报告评阅';
+ const mainTitle=document.querySelector('#lab-app .hdr h1');if(mainTitle)mainTitle.textContent=pageTitles[LAB_EXPERIMENT];
+ if(LAB_EXPERIMENT===2){const sub=document.querySelector('#lab-app .hdr-sub');if(sub)sub.textContent='燃油经济性仿真 · 《汽车理论》第6版 · 492QC-2发动机';}
+ if(!state.student)showLogin();
+ const badge=document.querySelector('.hdr-badge');if(LAB_EXPERIMENT===1&&badge)badge.textContent='学生仿真 · 报告评阅';
+})();
+
+</script>
+<!-- LAB_PLATFORM_SCRIPT_END -->
+</body>
+</html>
